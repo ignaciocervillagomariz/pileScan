@@ -19,25 +19,10 @@ def load_spec() -> dict:
     return yaml.safe_load((ROOT / "docs/api/openapi.yaml").read_text())
 
 
-def relax_nullable_allof(node):
-    """OAS 3.0 strictly rejects null for `nullable: true` + `allOf: [$ref]` (the $ref member is not nullable).
-    The relaxed copy accepts null there so the remaining response checks still run.
-    The strict problem is reported separately by test_spec.py::test_nullable_is_not_combined_with_allof."""
-    if isinstance(node, list):
-        return [relax_nullable_allof(n) for n in node]
-    if not isinstance(node, dict):
-        return node
-    out = {k: relax_nullable_allof(v) for k, v in node.items()}
-    if out.get("nullable") is True and "allOf" in out:
-        rest = {k: v for k, v in out.items() if k not in ("allOf", "nullable", "type")}
-        return {**rest, "anyOf": [{"allOf": out["allOf"]}, {"nullable": True, "enum": [None]}]}
-    return out
-
-
 @pytest.fixture(scope="session")
 def openapi() -> OpenAPI:
     config = Config(extra_media_type_deserializers={"application/problem+json": json.loads})
-    return OpenAPI.from_dict(relax_nullable_allof(load_spec()), config=config)
+    return OpenAPI.from_dict(load_spec(), config=config)
 
 
 @pytest.fixture(scope="session")
