@@ -25,8 +25,8 @@ Date: 2026-11-02. Stack: `docker compose -f docker-compose.yml -f tests/compose.
 | D2 | Health endpoints | curl | PASS | :8080/actuator/health 200, :8000/health 200, :4200 200, swagger-ui.html 302 to UI, :4200/api/colors 200 (nginx proxy works, D4) |
 | D3 | Catalog import | `GET /api/admin/catalog-import` | PASS | SUCCEEDED in about 17 s (28,561 sets, 1.57 M inventory_parts) |
 | D5 | Scan persists across backend restart | `docker compose restart backend`, then GET scan | PASS | 200 |
-| C1 | Live backend vs openapi.yaml (strict, requests and responses) | `npm run test:contract` | PASS | 23 tests: scans (jpeg/png/webp), EXIF, image dims, bbox bounds, add/update/delete, soft delete, 400/404/413/422/501 as problem+json, parts, colors, catalog status, ranking order/limits/math, ranking reflects corrections |
-| C2 | Live inference vs JSON schema | same | PASS | 12 tests incl. manifest piece counts (within +-1), EXIF, max_detections warning, debug image, 400/413/422 |
+| C1 | Live backend vs openapi.yaml (strict, requests and responses) | `npm run test:contract` | PASS | 20 tests: scans (jpeg/png/webp), EXIF, image dims, bbox bounds, add/update/delete, soft delete, 400/404/413/422/501 as problem+json, parts, colors, catalog status, ranking order/limits/math, ranking reflects corrections |
+| C2 | Live inference vs JSON schema | same | PASS | 13 tests (1 skipped, C3) incl. manifest piece counts (within +-1), EXIF, max_detections warning, debug image, 400/413/422 |
 | C3 | Real Brickognize smoke | `pytest -m real_brickognize` | SKIPPED | stack ran the stub classifier. Run with `PART_CLASSIFIER=brickognize` and internet |
 | N1-N2 | Oversize -> 413, non-image/corrupt -> 400 (API and UI error) | contract + e2e | PASS | |
 | N3 | Inference down -> FAILED scan with errorMessage, manual add works | `npm run test:nonfunctional` | PASS | |
