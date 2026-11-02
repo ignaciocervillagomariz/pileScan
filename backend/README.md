@@ -80,7 +80,7 @@ persistence uses Spring's `JdbcClient` with Flyway migrations (`src/main/resourc
 ### Plain JDBC instead of JPA
 The catalog is bulk SQL (`COPY`, upserts, a 1.3M-row derived table) and the ranking is one aggregate
 query; scans and detections are flat rows with two JSON columns. An ORM adds nothing here, and
-`JdbcClient` keeps the SQL visible. Jackson 3 (Boot 4) also removes the usual Hibernate JSON mapping shortcuts.
+`JdbcClient` keeps the SQL visible.
 
 ### Catalog import
 Rebrickable publishes gzipped CSVs. Each file is streamed with PostgreSQL `COPY` into a temporary
