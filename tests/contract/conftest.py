@@ -57,6 +57,11 @@ def wait_for(url: str, timeout: float = 120) -> None:
 
 
 @pytest.fixture(scope="session")
+def inference_up(inference_url: str) -> None:
+    wait_for(f"{inference_url}/health", 30)
+
+
+@pytest.fixture(scope="session")
 def services_up(backend_url: str, inference_url: str) -> None:
     wait_for(f"{inference_url}/health", 30)
     wait_for(f"{backend_url}/actuator/health", 30)
