@@ -1,5 +1,7 @@
 # PileScan — project rules
 
+At the start of a session, read .claude/handoff/README.md if it exists.
+
 PileScan (working title) is a mobile-first PWA. The user photographs loose toy bricks spread on
 a table. The app detects and counts every piece (part + color), lets the user correct mistakes,
 and ranks the official sets the pieces most likely come from, with match % and missing parts.

@@ -31,3 +31,6 @@ playwright-report/
 
 # local Claude Code settings
 .claude/settings.local.json
+
+# session handoff notes (local only)
+.claude/handoff/
