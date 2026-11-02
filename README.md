@@ -80,6 +80,7 @@ tuning variables:
 | `CATALOG_MAX_AGE_DAYS` | backend | 30 | Re-import on startup when the catalog is older than this |
 | `BRICKOGNIZE_MAX_RETRIES` / `BRICKOGNIZE_TIMEOUT_S` | inference | see inference README | Retry/backoff tuning |
 | `MAX_IMAGE_BYTES` | inference | 15 MB | Upload limit |
+| `BIND_ADDRESS` | compose | 127.0.0.1 | Host interface for published ports. Use `0.0.0.0` only to test from a phone on a trusted LAN (the API has no auth) |
 
 `CATALOG_BASE_URL` also accepts a `file:` URL that points at small CSVs, for a fast startup (see
 `backend/README.md`).
