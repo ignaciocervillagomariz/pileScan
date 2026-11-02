@@ -28,7 +28,7 @@ public class InferenceClient {
     private static final Logger log = LoggerFactory.getLogger(InferenceClient.class);
     private static final String SUPPORTED_MAJOR = "1.";
     private static final int MAX_ATTEMPTS = 2;
-    private static final Duration RETRY_DELAY = Duration.ofMillis(500);
+    private static final Duration RETRY_DELAY = Duration.ofSeconds(1);
 
     private final RestClient client;
     private final JsonMapper snakeCase = JsonMapper.builder()
@@ -94,14 +94,24 @@ public class InferenceClient {
                         + ": " + abbreviate(e.getResponseBodyAsString()), e);
             } catch (ResourceAccessException e) {
                 if (attempt >= MAX_ATTEMPTS || isReadTimeout(e)) {
-                    throw new InferenceException("Inference service unavailable: " + e.getMessage(), e);
+                    throw new InferenceException("Inference service unavailable: " + describe(e), e);
                 }
-                log.warn("Inference request failed ({}), retrying on a fresh connection", e.getMessage());
+                log.warn("Inference request failed ({}), retrying on a fresh connection", describe(e));
                 pause(RETRY_DELAY);
             } catch (RestClientException e) {
-                throw new InferenceException("Inference service unavailable: " + e.getMessage(), e);
+                throw new InferenceException("Inference service unavailable: " + describe(e), e);
             }
         }
+    }
+
+    /** The JDK client often reports a null message; the root cause class (e.g. UnknownHostException) says why. */
+    private static String describe(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String message = root.getMessage() != null ? root.getMessage() : e.getMessage();
+        return root.getClass().getSimpleName() + (message == null ? "" : ": " + message);
     }
 
     private static boolean isReadTimeout(ResourceAccessException e) {
