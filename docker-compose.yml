@@ -65,6 +65,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+      start_period: 120s
 
   frontend:
     build: ./frontend

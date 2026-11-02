@@ -188,6 +188,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SetCandidatesResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: Catalog not available yet (first import still running). Retry later; see GET /api/admin/catalog-import.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '501':
           description: Strategy not implemented yet (e.g. rarity-weighted).
           content:

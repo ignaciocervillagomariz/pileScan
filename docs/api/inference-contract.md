@@ -83,7 +83,10 @@ Detects every piece in a photo, then classifies its part and color.
 
 ## Swappability
 Detector, part classifier and color estimator are selected by env vars
-(`DETECTOR=opencv`, `PART_CLASSIFIER=brickognize`, `COLOR_ESTIMATOR=kmeans_lab`). Adding a YOLO
+(`DETECTOR=opencv`, `PART_CLASSIFIER=brickognize`, `COLOR_ESTIMATOR=kmeans_lab`).
+`PART_CLASSIFIER=stub` is a deterministic offline classifier (no network). It returns fixed
+BrickLink-style candidates derived from the crop geometry and is used for E2E tests and offline
+demos. Adding a YOLO
 detector or a custom classifier must not change this contract.
 
 ## Versioning
