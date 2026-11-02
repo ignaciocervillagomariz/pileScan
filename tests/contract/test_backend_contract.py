@@ -71,7 +71,7 @@ def test_update_part_color_and_validation(openapi, backend_url, scan) -> None:
     upd = call(openapi, "PATCH", f"{backend_url}/api/scans/{sid}/detections/{det['id']}", 200, json={"colorId": 1}).json()
     assert upd["corrected"] is True and upd["color"]["id"] == 1 and upd["part"]["partNum"] == "3001"
     assert_problem(call(openapi, "PATCH", f"{backend_url}/api/scans/{sid}/detections/{det['id']}", 422, json={"partNum": "NOPE-XYZ"}), 422)
-    assert_problem(call(openapi, "PATCH", f"{backend_url}/api/scans/{sid}/detections/{det['id']}", 400, json={}), 400)
+    assert_problem(call(openapi, "PATCH", f"{backend_url}/api/scans/{sid}/detections/{det['id']}", 400, valid_request=False, json={}), 400)
     assert_problem(call(openapi, "POST", f"{backend_url}/api/scans/{sid}/detections", 422, json={"partNum": "3001", "colorId": 999999}), 422)
 
 
@@ -121,7 +121,7 @@ def test_parts_search_exact_match_first(openapi, backend_url, catalog_ready) -> 
     assert parts and parts[0]["partNum"] == "3001"
     assert call(openapi, "GET", f"{backend_url}/api/parts/3001", 200).json()["name"]
     assert_problem(call(openapi, "GET", f"{backend_url}/api/parts/does-not-exist-123", 404), 404)
-    assert_problem(call(openapi, "GET", f"{backend_url}/api/parts", 400, params={"q": ""}), 400)
+    assert_problem(call(openapi, "GET", f"{backend_url}/api/parts", 400, valid_request=False, params={"q": ""}), 400)
 
 
 def test_colors(openapi, backend_url, catalog_ready) -> None:
