@@ -1,0 +1,6 @@
+pytest>=8
+requests>=2.32
+jsonschema>=4.23
+openapi-core>=0.19
+openapi-spec-validator>=0.7
+Pillow>=10

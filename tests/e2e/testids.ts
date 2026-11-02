@@ -1,0 +1,22 @@
+/** Single place for data-testid values. Confirm against the frontend; adjust here only. */
+export const ids = {
+  fileInput: 'capture-file-input',
+  analyzing: 'capture-analyzing',
+  captureError: 'capture-error',
+  reviewCanvas: 'review-canvas',
+  detectionItem: 'detection-item',
+  editPart: 'detection-edit-part',
+  editColor: 'detection-edit-color',
+  delete: 'detection-delete',
+  add: 'review-add-piece',
+  partSearch: 'part-search-input',
+  partOption: 'part-option',
+  colorOption: 'color-option',
+  confirm: 'dialog-confirm',
+  seeResults: 'review-see-results',
+  resultCard: 'set-candidate-card',
+  matchPercent: 'set-match-percent',
+  missingParts: 'set-missing-parts',
+  resultsEmpty: 'results-empty',
+  totalPieces: 'review-total-pieces',
+} as const;

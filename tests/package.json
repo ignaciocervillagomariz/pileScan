@@ -1,0 +1,23 @@
+{
+  "name": "pilescan-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium && bash scripts/setup-python.sh",
+    "fixtures": ".venv/bin/python scripts/make_fixtures.py",
+    "lint:spec": "redocly lint ../docs/api/openapi.yaml",
+    "test:static": "bash static/check-frontend-client.sh",
+    "test:contract": ".venv/bin/pytest contract -m 'not nonfunctional' -v",
+    "test:nonfunctional": ".venv/bin/pytest contract -m nonfunctional -v",
+    "test:e2e": "playwright test",
+    "stack:e2e": "docker compose -f ../docker-compose.yml -f compose.e2e.yml up --build -d --wait",
+    "stack:down": "docker compose -f ../docker-compose.yml -f compose.e2e.yml down",
+    "test:all": "bash scripts/run-all.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@redocly/cli": "^1.25.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

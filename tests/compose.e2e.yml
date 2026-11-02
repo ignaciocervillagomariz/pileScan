@@ -1,0 +1,6 @@
+# Override for deterministic E2E: offline stub part classifier (no Brickognize dependency).
+# Use: docker compose -f ../docker-compose.yml -f compose.e2e.yml up --build -d
+services:
+  inference:
+    environment:
+      PART_CLASSIFIER: stub

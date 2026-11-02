@@ -1,0 +1,6 @@
+# Brickognize unreachable: inference must return detections with empty part candidates + warning.
+services:
+  inference:
+    environment:
+      PART_CLASSIFIER: brickognize
+      BRICKOGNIZE_URL: http://127.0.0.1:9
