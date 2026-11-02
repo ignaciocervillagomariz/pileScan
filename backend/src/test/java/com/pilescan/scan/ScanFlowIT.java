@@ -176,6 +176,21 @@ class ScanFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void transientConnectionFailureIsRetriedOnce() throws Exception {
+        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("Started")
+                .willReturn(aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER))
+                .willSetStateTo("recovered"));
+        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("recovered")
+                .willReturn(aResponse().withHeader("Content-Type", "application/json")
+                        .withBody(ScanTestSupport.recognizeResponse(30, 30))));
+        stubRebrickable();
+
+        mvc.perform(multipart("/api/scans").file(image("a.png", TestImages.png(30, 30), "image/png")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+    }
+
+    @Test
     void rejectsInvalidUploads() throws Exception {
         mvc.perform(multipart("/api/scans").file(image("a.txt", "not an image".getBytes(), "text/plain")))
                 .andExpect(status().isBadRequest())

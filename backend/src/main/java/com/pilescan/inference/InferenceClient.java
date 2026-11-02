@@ -1,7 +1,11 @@
 package com.pilescan.inference;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.PropertyNamingStrategies;
@@ -20,7 +25,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class InferenceClient {
 
+    private static final Logger log = LoggerFactory.getLogger(InferenceClient.class);
     private static final String SUPPORTED_MAJOR = "1.";
+    private static final int MAX_ATTEMPTS = 2;
+    private static final Duration RETRY_DELAY = Duration.ofMillis(500);
 
     private final RestClient client;
     private final JsonMapper snakeCase = JsonMapper.builder()
@@ -52,19 +60,7 @@ public class InferenceClient {
             }
         }, partHeaders));
 
-        String raw;
-        try {
-            raw = client.post().uri("/v1/recognize")
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            throw new InferenceException("Inference service returned HTTP " + e.getStatusCode().value()
-                    + ": " + abbreviate(e.getResponseBodyAsString()), e);
-        } catch (RestClientException e) {
-            throw new InferenceException("Inference service unavailable: " + e.getMessage(), e);
-        }
+        String raw = post(body);
 
         RecognizeResponse response;
         try {
@@ -78,6 +74,46 @@ public class InferenceClient {
                     + response.contractVersion());
         }
         return response;
+    }
+
+    /**
+     * Recognition is idempotent, so a transport failure (stale keep-alive connection or old container
+     * address after the inference service was redeployed) is retried once on a fresh connection.
+     * A read timeout is not retried: the service accepted the request and is just slow.
+     */
+    private String post(MultiValueMap<String, Object> body) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return client.post().uri("/v1/recognize")
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(body)
+                        .retrieve()
+                        .body(String.class);
+            } catch (RestClientResponseException e) {
+                throw new InferenceException("Inference service returned HTTP " + e.getStatusCode().value()
+                        + ": " + abbreviate(e.getResponseBodyAsString()), e);
+            } catch (ResourceAccessException e) {
+                if (attempt >= MAX_ATTEMPTS || isReadTimeout(e)) {
+                    throw new InferenceException("Inference service unavailable: " + e.getMessage(), e);
+                }
+                log.warn("Inference request failed ({}), retrying on a fresh connection", e.getMessage());
+                pause(RETRY_DELAY);
+            } catch (RestClientException e) {
+                throw new InferenceException("Inference service unavailable: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    private static boolean isReadTimeout(ResourceAccessException e) {
+        return e.getCause() instanceof HttpTimeoutException && !(e.getCause() instanceof HttpConnectTimeoutException);
+    }
+
+    private static void pause(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static String abbreviate(String text) {

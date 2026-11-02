@@ -18,4 +18,6 @@ COPY --from=build /build/app.jar app.jar
 ENV SCAN_STORAGE_DIR=/data/scans CATALOG_CACHE_DIR=/data/catalog
 EXPOSE 8080
 # busybox wget (used by the compose health check) is part of the Alpine base image.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+# Short DNS cache and idle keep-alive: peers redeployed by compose get a new container address.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-Dsun.net.inetaddr.ttl=5", "-Djdk.httpclient.keepalive.timeout=5", \
+    "-jar", "app.jar"]
