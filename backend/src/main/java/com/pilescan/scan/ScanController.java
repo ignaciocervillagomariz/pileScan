@@ -1,6 +1,8 @@
 package com.pilescan.scan;
 
 import com.pilescan.common.ApiException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+@Tag(name = "scans")
 @RestController
 @RequestMapping("/api/scans")
 class ScanController {
@@ -29,6 +32,7 @@ class ScanController {
         this.service = service;
     }
 
+    @Operation(operationId = "createScan", summary = "Upload a photo, run recognition synchronously, and return the scan.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<Scan> create(@RequestPart("image") MultipartFile image) throws IOException {
         if (image.getSize() > MAX_IMAGE_BYTES) {
@@ -41,11 +45,13 @@ class ScanController {
         return ResponseEntity.created(URI.create("/api/scans/" + scan.id())).body(scan);
     }
 
+    @Operation(operationId = "getScan", summary = "Get a scan with its active detections and grouped summary.")
     @GetMapping("/{scanId}")
     Scan get(@PathVariable UUID scanId) {
         return service.get(scanId);
     }
 
+    @Operation(operationId = "getScanImage", summary = "Get the stored (orientation-corrected) scan image.")
     @GetMapping("/{scanId}/image")
     ResponseEntity<Resource> image(@PathVariable UUID scanId) {
         ScanService.StoredImage image = service.image(scanId);

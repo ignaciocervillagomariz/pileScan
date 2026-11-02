@@ -18,6 +18,9 @@ class CatalogImportIT extends AbstractIntegrationTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private ImportStatusRepository statusRepository;
+
     @Test
     void importsFixtureAndKeepsOnlyLatestNonSpareInventory() {
         loadCatalog();
@@ -43,6 +46,14 @@ class CatalogImportIT extends AbstractIntegrationTest {
         assertThat(jdbc.sql("SELECT count(*) FROM set_part_quantities").query(Long.class).single()).isEqualTo(before);
         assertThat(jdbc.sql("SELECT count(*) FROM parts").query(Long.class).single()).isEqualTo(6);
         assertThat(jdbc.sql("SELECT count(*) FROM inventories").query(Long.class).single()).isEqualTo(4);
+    }
+
+    @Test
+    void stalenessFollowsLastSuccessfulImport() {
+        loadCatalog();
+        assertThat(statusRepository.isStale(java.time.Duration.ofDays(30))).isFalse();
+        assertThat(statusRepository.isStale(java.time.Duration.ZERO)).isTrue();
+        assertThat(statusRepository.isCatalogAvailable()).isTrue();
     }
 
     @Test

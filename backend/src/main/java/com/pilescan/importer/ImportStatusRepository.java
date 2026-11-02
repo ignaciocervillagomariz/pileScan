@@ -1,6 +1,7 @@
 package com.pilescan.importer;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -42,10 +43,12 @@ public class ImportStatusRepository {
                 .query(Boolean.class).single();
     }
 
-    public boolean isStale(java.time.Duration maxAge) {
-        OffsetDateTime last = jdbc.sql("SELECT last_success_at FROM catalog_import_status WHERE id = 1")
-                .query((rs, n) -> rs.getObject(1, OffsetDateTime.class)).single();
-        return last == null || last.isBefore(OffsetDateTime.now(clock).minus(maxAge));
+    /** True when no import ever succeeded or the last success is older than {@code maxAge}. */
+    public boolean isStale(Duration maxAge) {
+        return jdbc.sql("SELECT last_success_at IS NULL OR last_success_at < :threshold "
+                        + "FROM catalog_import_status WHERE id = 1")
+                .param("threshold", OffsetDateTime.now(clock).minus(maxAge))
+                .query(Boolean.class).single();
     }
 
     void markRunning() {
