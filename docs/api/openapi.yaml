@@ -1,0 +1,581 @@
+openapi: 3.0.3
+info:
+  title: PileScan API
+  version: 1.0.0
+  description: |
+    Public API of PileScan. Anonymous scans are identified by UUID, with no auth (MVP).
+
+    Conventions:
+    - JSON is camelCase. Errors use RFC 9457 `application/problem+json`.
+    - Part IDs are Rebrickable `part_num`. Color IDs are Rebrickable color IDs.
+    - Bounding boxes are pixels of the stored scan image (`GET /api/scans/{scanId}/image`),
+      origin top-left.
+    - Deleted detections (false positives) are soft-deleted and excluded from every response
+      and from ranking.
+  license:
+    name: MIT
+security: []  # MVP: anonymous, no auth
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: scans
+    description: Scans endpoints.
+  - name: detections
+    description: Detections endpoints.
+  - name: sets
+    description: Sets endpoints.
+  - name: catalog
+    description: Catalog endpoints.
+  - name: admin
+    description: Admin endpoints.
+paths:
+  /api/scans:
+    post:
+      tags: [scans]
+      operationId: createScan
+      summary: Upload a photo, run recognition synchronously, and return the scan.
+      description: |
+        Stores the image (orientation-corrected), calls the inference service, maps part IDs
+        to Rebrickable, and persists detections. Synchronous. Can take tens of seconds for
+        large piles. If inference fails, the scan is still created with status FAILED and
+        `errorMessage` set, so the client can retry or add pieces manually.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG or WebP, at most 15 MB.
+      responses:
+        '201':
+          description: Scan created.
+          headers:
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scan' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+  /api/scans/{scanId}:
+    parameters:
+      - $ref: '#/components/parameters/ScanId'
+    get:
+      tags: [scans]
+      operationId: getScan
+      summary: Get a scan with its active detections and grouped summary.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scan' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/scans/{scanId}/image:
+    parameters:
+      - $ref: '#/components/parameters/ScanId'
+    get:
+      tags: [scans]
+      operationId: getScanImage
+      summary: Get the stored (orientation-corrected) scan image.
+      responses:
+        '200':
+          description: Image bytes.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/scans/{scanId}/detections:
+    parameters:
+      - $ref: '#/components/parameters/ScanId'
+    get:
+      tags: [detections]
+      operationId: listDetections
+      summary: List active detections of a scan.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Detection' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [detections]
+      operationId: addDetection
+      summary: Add a piece the detector missed (manual correction).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DetectionCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Detection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /api/scans/{scanId}/detections/{detectionId}:
+    parameters:
+      - $ref: '#/components/parameters/ScanId'
+      - $ref: '#/components/parameters/DetectionId'
+    patch:
+      tags: [detections]
+      operationId: updateDetection
+      summary: Correct the part and/or color of a detection.
+      description: Only the provided fields change. Sets `corrected=true`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DetectionUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Detection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [detections]
+      operationId: deleteDetection
+      summary: Remove a false positive (soft delete).
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/scans/{scanId}/set-candidates:
+    parameters:
+      - $ref: '#/components/parameters/ScanId'
+    get:
+      tags: [sets]
+      operationId: getSetCandidates
+      summary: Rank the official sets these pieces most likely come from.
+      description: Computed on demand from the current (corrected) detections.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 5 }
+        - name: strategy
+          in: query
+          description: Ranking strategy. Only `coverage` is implemented in the MVP.
+          schema:
+            type: string
+            enum: [coverage, rarity-weighted]
+            default: coverage
+        - name: missingLimit
+          in: query
+          description: Maximum number of missing-part lines returned per candidate.
+          schema: { type: integer, minimum: 0, maximum: 500, default: 50 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetCandidatesResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501':
+          description: Strategy not implemented yet (e.g. rarity-weighted).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/parts:
+    get:
+      tags: [catalog]
+      operationId: searchParts
+      summary: Search parts by part number or name (autocomplete).
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Best matches first (exact part_num, then prefix, then name contains).
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Part' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/parts/{partNum}:
+    get:
+      tags: [catalog]
+      operationId: getPart
+      summary: Get one part by Rebrickable part_num.
+      parameters:
+        - name: partNum
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Part' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/colors:
+    get:
+      tags: [catalog]
+      operationId: listColors
+      summary: All Rebrickable colors, sorted by name.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Color' }
+  /api/admin/catalog-import:
+    get:
+      tags: [admin]
+      operationId: getCatalogImportStatus
+      summary: Status of the last catalog import.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogImportStatus' }
+    post:
+      tags: [admin]
+      operationId: startCatalogImport
+      summary: Start the idempotent Rebrickable CSV import. No-op if already running.
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogImportStatus' }
+  /api/admin/unmapped-part-ids:
+    get:
+      tags: [admin]
+      operationId: listUnmappedPartIds
+      summary: Detector part IDs that could not be mapped to a Rebrickable part_num.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UnmappedPartId' }
+components:
+  parameters:
+    ScanId:
+      name: scanId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DetectionId:
+      name: detectionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Not found.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: Image too large.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unprocessable:
+      description: Semantically invalid (e.g. unknown partNum or colorId).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    ScanStatus:
+      type: string
+      enum: [PROCESSING, COMPLETED, FAILED]
+    Scan:
+      type: object
+      required: [id, status, createdAt, image, detections, summary, warnings]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ScanStatus' }
+        createdAt: { type: string, format: date-time }
+        image: { $ref: '#/components/schemas/ScanImage' }
+        detections:
+          type: array
+          items: { $ref: '#/components/schemas/Detection' }
+        summary: { $ref: '#/components/schemas/ScanSummary' }
+        warnings:
+          type: array
+          items: { type: string }
+        errorMessage:
+          type: string
+          nullable: true
+        pipeline:
+          type: string
+          nullable: true
+          description: Inference pipeline that produced the detections, e.g. "opencv-lab-v1/brickognize-v1/kmeans-lab-ciede2000-v1".
+    ScanImage:
+      type: object
+      required: [url, width, height]
+      properties:
+        url: { type: string, description: 'Relative URL of the image, e.g. /api/scans/{id}/image' }
+        width: { type: integer }
+        height: { type: integer }
+    ScanSummary:
+      type: object
+      required: [totalPieces, distinctParts, unidentifiedPieces, groups]
+      properties:
+        totalPieces: { type: integer, description: Active detections. }
+        distinctParts: { type: integer, description: Distinct part+color combinations. }
+        unidentifiedPieces: { type: integer, description: Active detections with no partNum (unmapped or unclassified). }
+        groups:
+          type: array
+          description: Active detections grouped by partNum+colorId, sorted by count desc.
+          items: { $ref: '#/components/schemas/PieceGroup' }
+    PieceGroup:
+      type: object
+      required: [count, detectionIds]
+      properties:
+        part:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/PartRef' }]
+          nullable: true
+        color:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/ColorRef' }]
+          nullable: true
+        count: { type: integer, minimum: 1 }
+        detectionIds:
+          type: array
+          items: { type: string, format: uuid }
+    BBox:
+      type: object
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer, minimum: 0 }
+        y: { type: integer, minimum: 0 }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+    DetectionSource:
+      type: string
+      enum: [DETECTED, MANUAL]
+    MappingStatus:
+      type: string
+      enum: [MAPPED, UNMAPPED, NONE]
+      description: NONE means the classifier returned no part candidates.
+    Detection:
+      type: object
+      required: [id, source, corrected, confidence, partCandidates, colorCandidates, mappingStatus]
+      properties:
+        id: { type: string, format: uuid }
+        bbox:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/BBox' }]
+          nullable: true
+          description: Null for manually added pieces without a box.
+        source: { $ref: '#/components/schemas/DetectionSource' }
+        corrected: { type: boolean, description: True if a user changed part or color. }
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Combined score used to color boxes (detection × top part × top color). 1.0 for user-corrected or manual pieces.
+        part:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/PartRef' }]
+          nullable: true
+          description: Current part (top candidate or user choice). Null if unidentified.
+        color:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/ColorRef' }]
+          nullable: true
+        partCandidates:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/PartCandidate' }
+        colorCandidates:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ColorCandidate' }
+        measuredRgb:
+          type: string
+          nullable: true
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: '#C4201B'
+        mappingStatus: { $ref: '#/components/schemas/MappingStatus' }
+    DetectionCreate:
+      type: object
+      required: [partNum, colorId]
+      properties:
+        partNum: { type: string }
+        colorId: { type: integer }
+        bbox:
+          type: object
+          allOf: [{ $ref: '#/components/schemas/BBox' }]
+          nullable: true
+    DetectionUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        partNum: { type: string }
+        colorId: { type: integer }
+    PartRef:
+      type: object
+      required: [partNum, name]
+      properties:
+        partNum: { type: string, example: '3001' }
+        name: { type: string, example: 'Brick 2 x 4' }
+        imageUrl: { type: string, nullable: true }
+    ColorRef:
+      type: object
+      required: [id, name, rgb]
+      properties:
+        id: { type: integer, example: 4 }
+        name: { type: string, example: Red }
+        rgb: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', example: '#C91A09' }
+    PartCandidate:
+      type: object
+      required: [rawPartId, idSystem, name, score]
+      properties:
+        partNum:
+          type: string
+          nullable: true
+          description: Rebrickable part_num, or null if it could not be mapped.
+        rawPartId: { type: string, description: ID as returned by the classifier. }
+        idSystem: { type: string, enum: [bricklink, rebrickable, ldraw] }
+        name: { type: string }
+        score: { type: number, minimum: 0, maximum: 1 }
+        imageUrl: { type: string, nullable: true }
+    ColorCandidate:
+      type: object
+      required: [color, score]
+      properties:
+        color: { $ref: '#/components/schemas/ColorRef' }
+        score: { type: number, minimum: 0, maximum: 1 }
+    Part:
+      type: object
+      required: [partNum, name]
+      properties:
+        partNum: { type: string }
+        name: { type: string }
+        categoryName: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+    Color:
+      type: object
+      required: [id, name, rgb, isTrans]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        rgb: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        isTrans: { type: boolean }
+    SetCandidatesResponse:
+      type: object
+      required: [scanId, strategy, pilePieces, candidates]
+      properties:
+        scanId: { type: string, format: uuid }
+        strategy: { type: string, example: coverage }
+        pilePieces:
+          type: integer
+          description: Identified active pieces (with partNum and color) used for ranking.
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/SetCandidate' }
+    SetSummary:
+      type: object
+      required: [setNum, name, year, numParts]
+      properties:
+        setNum: { type: string, example: '31058-1' }
+        name: { type: string }
+        year: { type: integer }
+        themeName: { type: string, nullable: true }
+        numParts: { type: integer, description: Non-spare parts in the latest inventory version. }
+        imageUrl: { type: string, nullable: true }
+    SetCandidate:
+      type: object
+      required: [rank, set, matchPercent, pileCoverage, setCompleteness, matchedPieces, missingPieces, missingParts]
+      properties:
+        rank: { type: integer, minimum: 1 }
+        set: { $ref: '#/components/schemas/SetSummary' }
+        matchPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Strategy score × 100. Used for sorting and display.
+        pileCoverage:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: '"Pile pieces found in set": Σ min(pileQty, setQty) / pile pieces.'
+        setCompleteness:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: '"Set completeness": Σ min(pileQty, setQty) / set pieces.'
+        matchedPieces: { type: integer }
+        missingPieces: { type: integer, description: Total quantity the pile lacks to complete the set. }
+        missingParts:
+          type: array
+          description: Missing part+color lines, largest shortfall first, capped at missingLimit.
+          items: { $ref: '#/components/schemas/MissingPart' }
+    MissingPart:
+      type: object
+      required: [part, color, quantityNeeded, quantityHave]
+      properties:
+        part: { $ref: '#/components/schemas/PartRef' }
+        color: { $ref: '#/components/schemas/ColorRef' }
+        quantityNeeded: { type: integer, description: Quantity in the set. }
+        quantityHave: { type: integer, description: Quantity in the pile. }
+    CatalogImportStatus:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [NEVER_RUN, RUNNING, SUCCEEDED, FAILED] }
+        startedAt: { type: string, format: date-time, nullable: true }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        message: { type: string, nullable: true }
+        counts:
+          type: object
+          additionalProperties: { type: integer }
+          description: 'Rows upserted per table, e.g. {"sets": 24000}.'
+    UnmappedPartId:
+      type: object
+      required: [rawPartId, idSystem, occurrences, lastSeenAt]
+      properties:
+        rawPartId: { type: string }
+        idSystem: { type: string }
+        occurrences: { type: integer }
+        lastSeenAt: { type: string, format: date-time }
+        lastError: { type: string, nullable: true }

@@ -1,0 +1,30 @@
+.env
+.DS_Store
+*.log
+
+# node / angular
+node_modules/
+dist/
+.angular/
+coverage/
+
+# java
+target/
+*.class
+.idea/
+*.iml
+
+# python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+
+# playwright
+test-results/
+playwright-report/
+
+# local data
+/data/
+*.csv.gz

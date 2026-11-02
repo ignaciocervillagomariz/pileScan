@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pilescan.local/schemas/inference-response.schema.json",
+  "title": "RecognizeResponse",
+  "description": "Response of POST /v1/recognize on the inference service. Contract version 1.0.0. See docs/api/inference-contract.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "image", "detections", "pipeline", "timings_ms", "warnings", "debug_image"],
+  "properties": {
+    "contract_version": { "type": "string", "const": "1.0.0" },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "detections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Detection" }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detector", "part_classifier", "color_estimator"],
+      "properties": {
+        "detector": { "type": "string", "examples": ["opencv-lab-v1"] },
+        "part_classifier": { "type": "string", "examples": ["brickognize-v1"] },
+        "color_estimator": { "type": "string", "examples": ["kmeans-lab-ciede2000-v1"] }
+      }
+    },
+    "timings_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detect", "classify", "color", "total"],
+      "properties": {
+        "detect": { "type": "number", "minimum": 0 },
+        "classify": { "type": "number", "minimum": 0 },
+        "color": { "type": "number", "minimum": 0 },
+        "total": { "type": "number", "minimum": 0 }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Human-readable, non-fatal problems (e.g. 'part classifier unavailable for 3 crops')."
+    },
+    "debug_image": {
+      "type": ["string", "null"],
+      "contentEncoding": "base64",
+      "contentMediaType": "image/jpeg",
+      "description": "Base64 JPEG of the input with boxes drawn. Only set when debug=true, otherwise null."
+    }
+  },
+  "$defs": {
+    "BBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Axis-aligned box in pixels of the (EXIF-orientation-corrected) input image. Origin top-left.",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "PartCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["part_id", "id_system", "name", "score"],
+      "properties": {
+        "part_id": { "type": "string", "minLength": 1, "examples": ["3001", "3626cpb1234"] },
+        "id_system": {
+          "type": "string",
+          "enum": ["bricklink", "rebrickable", "ldraw"],
+          "description": "ID namespace of part_id. The Brickognize adapter returns 'bricklink'; the backend maps to Rebrickable part_num."
+        },
+        "name": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "image_url": { "type": ["string", "null"], "format": "uri", "description": "Optional reference image of the part." }
+      }
+    },
+    "ColorCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rebrickable_color_id", "name", "score"],
+      "properties": {
+        "rebrickable_color_id": { "type": "integer", "minimum": -1 },
+        "name": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "delta_e": { "type": "number", "minimum": 0, "description": "CIEDE2000 distance between measured color and this palette color." }
+      }
+    },
+    "RGB": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["r", "g", "b"],
+      "properties": {
+        "r": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "g": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "b": { "type": "integer", "minimum": 0, "maximum": 255 }
+      }
+    },
+    "Detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "bbox", "detection_score", "part_candidates", "color_candidates", "measured_rgb"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "description": "Stable index within this response." },
+        "bbox": { "$ref": "#/$defs/BBox" },
+        "detection_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "Detector confidence that this region is a single piece." },
+        "part_candidates": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/PartCandidate" },
+          "description": "Top-3 part guesses sorted by score desc. Empty if the classifier failed for this crop (a warning is added)."
+        },
+        "color_candidates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/ColorCandidate" },
+          "description": "Top-3 Rebrickable colors sorted by score desc."
+        },
+        "measured_rgb": { "$ref": "#/$defs/RGB", "description": "Dominant piece color measured on the mask (sRGB)." }
+      }
+    }
+  }
+}

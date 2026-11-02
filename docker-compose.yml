@@ -1,0 +1,80 @@
+# PileScan local stack: `cp .env.example .env && docker compose up --build`
+# frontend http://localhost:4200 · API http://localhost:8080 (Swagger: /swagger-ui.html) · inference http://localhost:8000
+name: pilescan
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pilescan}
+      POSTGRES_USER: ${DB_USER:-pilescan}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pilescan}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  inference:
+    build: ./inference
+    ports:
+      - "8000:8000"
+    environment:
+      BRICKOGNIZE_URL: ${BRICKOGNIZE_URL:-https://api.brickognize.com}
+      DETECTOR: ${DETECTOR:-opencv}
+      PART_CLASSIFIER: ${PART_CLASSIFIER:-brickognize}
+      COLOR_ESTIMATOR: ${COLOR_ESTIMATOR:-kmeans_lab}
+      BRICKOGNIZE_MAX_CONCURRENCY: ${BRICKOGNIZE_MAX_CONCURRENCY:-2}
+      CACHE_DIR: /data/cache
+    volumes:
+      - inference-cache:/data/cache
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-pilescan}
+      DB_USER: ${DB_USER:-pilescan}
+      DB_PASSWORD: ${DB_PASSWORD:-pilescan}
+      INFERENCE_URL: http://inference:8000
+      REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
+      CATALOG_IMPORT_ON_STARTUP: ${CATALOG_IMPORT_ON_STARTUP:-true}
+      CATALOG_BASE_URL: ${CATALOG_BASE_URL:-https://cdn.rebrickable.com/media/downloads}
+      SCAN_STORAGE_DIR: /data/scans
+      CORS_ALLOWED_ORIGINS: http://localhost:4200
+    volumes:
+      - scans:/data/scans
+      - catalog-cache:/data/catalog
+    depends_on:
+      postgres:
+        condition: service_healthy
+      inference:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || curl -fs http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  scans:
+  catalog-cache:
+  inference-cache:
