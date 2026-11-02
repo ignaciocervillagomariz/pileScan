@@ -28,3 +28,6 @@ playwright-report/
 # local data
 /data/
 *.csv.gz
+
+# local Claude Code settings
+.claude/settings.local.json
