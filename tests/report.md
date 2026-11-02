@@ -7,7 +7,7 @@ Date: 2026-11-02. Stack: `docker compose -f docker-compose.yml -f tests/compose.
 | Result | Count |
 | --- | --- |
 | PASS | 14 check groups (see table), 0 failures open |
-| FAIL | 0 open (1 found and fixed during the run: BUG-1) |
+| FAIL | 1 open (BUG-2, intermittent, owner backend); BUG-1 found and fixed |
 | SKIPPED | 2 (real Brickognize smoke; manual real-photo tests) |
 
 ## Checks
@@ -46,7 +46,11 @@ E2E total: 16 tests (8 per project), all passed. Contract: 35 passed, 1 skipped.
 | --- | --- | --- | --- |
 | BUG-1 | team-lead | FIXED, verified | openapi.yaml combined `nullable: true` with `allOf: [$ref]` (Detection.bbox/part/color, PieceGroup.part/color, DetectionCreate.bbox). Strict OAS 3.0 validators reject the `null` the backend correctly returns. Fixed in 03b3468; strict validation now passes |
 
-No open bugs.
+| BUG-2 | backend | OPEN, not re-verified | The first `POST /api/scans` after the inference container is recreated intermittently ends FAILED (`I/O error on POST .../v1/recognize: null` or connect timeout) although inference is healthy. Repro: `pytest contract -m nonfunctional` repeatedly (about 1 in 3 runs fails `test_brickognize_down_yields_empty_candidates_and_warning`). Suspected stale pooled connection or DNS cache; a retry on IO error would likely fix it. Reported to backend, no fix verified yet |
+
+Re-run after the backend JPA refactor and the regenerated client (final state): `mvnw verify` 52 green, lint/static/check:api PASS, live contract 36 passed (strict spec), E2E 16/16. Failure-mode suite is intermittent because of BUG-2.
+
+Infra note for team-lead: inference port 8000 is published on all interfaces and showed requests from an external IP; consider binding to 127.0.0.1 or not publishing it.
 
 ## Observations (not bugs)
 - The "find sets" link is an `<a>` with `aria-disabled` and no href when no piece is identified, so the empty results state is only reachable by URL.
