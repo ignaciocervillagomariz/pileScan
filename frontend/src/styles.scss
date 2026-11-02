@@ -1,0 +1,120 @@
+/* Design tokens. Text/background pairs below meet WCAG AA (4.5:1). */
+:root {
+  --ion-font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --ps-ink: #1f2a44;
+  --ps-ink-soft: #4b5670;
+  --ps-surface: #ffffff;
+  --ps-canvas: #f4f1ea;
+  --ps-line: #ddd7ca;
+  --ps-brand: #c2410c;
+  --ps-brand-dark: #9a3412;
+  --ps-high: #15803d;
+  --ps-medium: #b45309;
+  --ps-low: #b91c1c;
+  --ps-radius: 14px;
+
+  --ion-color-primary: #c2410c;
+  --ion-color-primary-rgb: 194, 65, 12;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #ab3a0a;
+  --ion-color-primary-tint: #c8541f;
+
+  --ion-background-color: var(--ps-canvas);
+  --ion-text-color: var(--ps-ink);
+  --ion-toolbar-background: var(--ps-ink);
+  --ion-toolbar-color: #ffffff;
+}
+
+body {
+  background: var(--ps-canvas);
+  color: var(--ps-ink);
+}
+
+:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.page-column {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--ps-surface);
+  border: 1px solid var(--ps-line);
+  border-radius: var(--ps-radius);
+  padding: 16px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 2px solid var(--ps-ink);
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.primary {
+    background: var(--ps-brand-dark);
+    border-color: var(--ps-brand-dark);
+    color: #ffffff;
+  }
+
+  &.danger {
+    border-color: var(--ps-low);
+    color: var(--ps-low);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.banner {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid;
+
+  &.error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #7f1d1d;
+  }
+
+  &.warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #78350f;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
