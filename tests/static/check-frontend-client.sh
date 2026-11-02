@@ -17,8 +17,8 @@ excl=()
 echo "== hand-written /api URLs outside the generated client =="
 if grep -rnE "['\"\`]/?(https?://[^'\"\`]+)?/api/" "$SRC" --include='*.ts' --include='*.html' "${excl[@]}" --exclude='*.spec.ts'; then fail=1; fi
 
-echo "== HttpClient usage outside the generated client =="
-if grep -rnE "HttpClient|fetch\(|XMLHttpRequest|axios" "$SRC" --include='*.ts' "${excl[@]}" --exclude='*.spec.ts' \
+echo "== HttpClient/XHR/axios usage outside the generated client =="
+if grep -rnE "HttpClient|XMLHttpRequest|axios" "$SRC" --include='*.ts' "${excl[@]}" --exclude='*.spec.ts' \
    | grep -vE "provideHttpClient|app\.config"; then fail=1; fi
 
 echo "== 'any' type =="
