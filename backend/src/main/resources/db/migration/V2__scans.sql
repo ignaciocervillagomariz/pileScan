@@ -13,6 +13,7 @@ CREATE TABLE scans (
 
 CREATE TABLE detections (
     id               UUID PRIMARY KEY,
+    seq              BIGINT GENERATED ALWAYS AS IDENTITY,
     scan_id          UUID             NOT NULL REFERENCES scans (id) ON DELETE CASCADE,
     source           TEXT             NOT NULL,
     corrected        BOOLEAN          NOT NULL DEFAULT FALSE,
@@ -30,7 +31,7 @@ CREATE TABLE detections (
     color_candidates JSONB            NOT NULL DEFAULT '[]'::jsonb,
     created_at       TIMESTAMPTZ      NOT NULL
 );
-CREATE INDEX detections_scan_active_idx ON detections (scan_id, created_at) WHERE NOT deleted;
+CREATE INDEX detections_scan_active_idx ON detections (scan_id, seq) WHERE NOT deleted;
 
 -- Cache of detector part IDs -> Rebrickable part_num, including negative answers.
 CREATE TABLE part_id_mapping (

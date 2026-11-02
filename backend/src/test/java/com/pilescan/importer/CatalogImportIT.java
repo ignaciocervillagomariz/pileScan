@@ -70,6 +70,7 @@ class CatalogImportIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/parts/nope")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
         mvc.perform(get("/api/parts")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/parts").param("q", "3").param("limit", "51")).andExpect(status().isBadRequest());
         mvc.perform(get("/api/colors"))
                 .andExpect(jsonPath("$[0].name").value("Black"))
                 .andExpect(jsonPath("$[?(@.id==4)].rgb").value("#C91A09"))
