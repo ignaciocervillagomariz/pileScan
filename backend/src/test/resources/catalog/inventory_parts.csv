@@ -1,0 +1,15 @@
+inventory_id,part_num,color_id,quantity,is_spare,img_url
+1,3001,4,99,False,
+2,3001,4,2,False,https://example.test/parts/3001-4.jpg
+2,3002,4,2,False,
+2,3003,1,4,False,https://example.test/parts/3003-1.jpg
+2,3005,0,1,True,
+3,3001,1,4,False,https://example.test/parts/3001-1.jpg
+3,3002,4,1,False,
+3,3004,1,2,False,
+4,3001,4,4,False,
+4,3002,4,2,False,
+4,3003,1,4,False,
+4,3004,1,2,False,
+4,3005,0,10,False,
+4,3001,4,1,True,

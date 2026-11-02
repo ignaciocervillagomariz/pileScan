@@ -1,0 +1,6 @@
+id,name,rgb,is_trans,num_parts,num_sets,y1,y2
+-1,[Unknown],0033B2,False,17,2,2000,2000
+0,Black,05131D,False,849887,235264,1957,2027
+1,Blue,0055BF,False,100,50,1950,2027
+4,Red,C91A09,False,100,50,1950,2027
+15,White,FFFFFF,False,100,50,1950,2027
