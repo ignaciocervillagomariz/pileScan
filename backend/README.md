@@ -62,7 +62,7 @@ into the container and use its container path.
 ## Layout
 
 Package `com.pilescan`, one package per feature. Controllers are thin, logic lives in services,
-persistence uses Spring's `JdbcClient` with Flyway migrations (`src/main/resources/db/migration`).
+persistence is Spring Data JPA for the scan aggregate and `JdbcClient` for bulk SQL (see Decisions), with Flyway migrations (`src/main/resources/db/migration`).
 
 | Package | Responsibility |
 | --- | --- |
@@ -77,10 +77,15 @@ persistence uses Spring's `JdbcClient` with Flyway migrations (`src/main/resourc
 
 ## Decisions
 
-### Plain JDBC instead of JPA
-The catalog is bulk SQL (`COPY`, upserts, a 1.3M-row derived table) and the ranking is one aggregate
-query; scans and detections are flat rows with two JSON columns. An ORM adds nothing here, and
-`JdbcClient` keeps the SQL visible.
+### JPA for the aggregate, JDBC for bulk and analytics
+- **Spring Data JPA** (Hibernate, `ddl-auto=validate`, open-in-view off) models the transactional domain:
+  the `Scan` aggregate with its `Detection`s (soft delete through `@SQLRestriction`, candidates as `jsonb`
+  columns) and the part-ID mapping cache and unmapped-ID tracker. Repositories expose immutable records
+  to the services, so entities stay inside their package. Counters that concurrent scans may bump at
+  the same time (`part_id_mapping`, `unmapped_part_ids`) are native `ON CONFLICT` upserts declared on the JPA repositories.
+- **`JdbcClient` + `COPY`** where bulk SQL wins: the catalog import (1.5M rows), the catalog read
+  queries and the ranking aggregate. An ORM adds nothing there and the SQL stays visible.
+- Flyway owns the schema in both cases; Hibernate only validates that the entities match it.
 
 ### Catalog import
 Rebrickable publishes gzipped CSVs. Each file is streamed with PostgreSQL `COPY` into a temporary
