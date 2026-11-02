@@ -4,3 +4,4 @@ services:
     environment:
       PART_CLASSIFIER: brickognize
       BRICKOGNIZE_URL: http://127.0.0.1:9
+      CACHE_DIR: /tmp/empty-cache
