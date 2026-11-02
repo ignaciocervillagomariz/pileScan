@@ -3,6 +3,7 @@ package com.pilescan.scan;
 import com.pilescan.common.ApiException;
 import com.pilescan.detection.Detection;
 import com.pilescan.detection.DetectionAssembler;
+import com.pilescan.detection.DetectionEntity;
 import com.pilescan.detection.DetectionRepository;
 import com.pilescan.inference.InferenceClient;
 import com.pilescan.inference.InferenceException;
@@ -54,8 +55,8 @@ public class ScanService {
         ProcessedImage image = imageProcessor.process(upload);
         UUID id = UUID.randomUUID();
         String file = imageStore.save(id, image);
-        scans.insert(new ScanRecord(id, ScanStatus.PROCESSING, OffsetDateTime.now(clock), file, image.contentType(),
-                image.width(), image.height(), null, null, List.of()));
+        scans.save(new ScanEntity(id, OffsetDateTime.now(clock), file, image.contentType(), image.width(),
+                image.height()));
         recognize(id, image);
         return get(id);
     }
@@ -73,35 +74,44 @@ public class ScanService {
             List<String> finalWarnings = warnings;
             tx.executeWithoutResult(status -> {
                 mapped.detections().forEach(detections::insert);
-                scans.finish(id, ScanStatus.COMPLETED, response.pipeline().label(), null, finalWarnings);
+                scans.getReferenceById(id).complete(response.pipeline().label(), finalWarnings);
             });
         } catch (InferenceException e) {
             log.warn("Inference failed for scan {}: {}", id, e.getMessage());
-            scans.finish(id, ScanStatus.FAILED, null, e.getMessage(), List.of());
+            fail(id, e.getMessage());
         } catch (RuntimeException e) {
             log.error("Processing failed for scan {}", id, e);
-            scans.finish(id, ScanStatus.FAILED, null, "Processing the recognition result failed: " + e.getMessage(),
-                    List.of());
+            fail(id, "Processing the recognition result failed: " + e.getMessage());
         }
     }
 
+    private void fail(UUID id, String message) {
+        tx.executeWithoutResult(status -> scans.getReferenceById(id).fail(message));
+    }
+
+    /** Runs in a transaction because the detections of the aggregate are loaded lazily. */
     public Scan get(UUID id) {
-        ScanRecord scan = scans.find(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));
-        List<Detection> active = assembler.assemble(detections.listActive(id));
-        return new Scan(scan.id(), scan.status(), scan.createdAt(),
-                new Scan.Image("/api/scans/" + id + "/image", scan.imageWidth(), scan.imageHeight()),
-                active, ScanSummary.of(active), scan.warnings(), scan.errorMessage(), scan.pipeline());
+        return tx.execute(status -> load(id));
+    }
+
+    private Scan load(UUID id) {
+        ScanEntity scan = scans.findById(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));
+        List<Detection> active = assembler.assemble(
+                scan.getDetections().stream().map(DetectionEntity::toRecord).toList());
+        return new Scan(scan.getId(), scan.getStatus(), scan.getCreatedAt(),
+                new Scan.Image("/api/scans/" + id + "/image", scan.getImageWidth(), scan.getImageHeight()),
+                active, ScanSummary.of(active), scan.getWarnings(), scan.getErrorMessage(), scan.getPipeline());
     }
 
     /** Stored image as a resource together with its content type. */
     public record StoredImage(Resource resource, String contentType) { }
 
     public StoredImage image(UUID id) {
-        ScanRecord scan = scans.find(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));
-        Resource resource = imageStore.resource(scan.imageFile());
+        ScanEntity scan = scans.findById(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));
+        Resource resource = imageStore.resource(scan.getImageFile());
         if (!resource.exists()) {
             throw ApiException.notFound("Image of scan " + id + " is no longer available.");
         }
-        return new StoredImage(resource, scan.imageContentType());
+        return new StoredImage(resource, scan.getImageContentType());
     }
 }

@@ -33,6 +33,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 class ScanFlowIT extends AbstractIntegrationTest {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.simple.JdbcClient jdbc;
+
     @BeforeEach
     void catalog() {
         loadCatalog();
@@ -105,6 +108,10 @@ class ScanFlowIT extends AbstractIntegrationTest {
         String id = com.jayway.jsonpath.JsonPath.read(created.getResponse().getContentAsString(), "$.id");
         WIREMOCK.verify(postRequestedFor(urlEqualTo("/v1/recognize"))
                 .withRequestBodyPart(aMultipart().withName("image").build()));
+
+        // Candidates must be stored as real JSON arrays, not as JSON-encoded strings.
+        assertThat(jdbc.sql("SELECT DISTINCT jsonb_typeof(part_candidates) FROM detections WHERE scan_id = :id")
+                .param("id", java.util.UUID.fromString(id)).query(String.class).list()).containsExactly("array");
 
         mvc.perform(get("/api/scans/{id}", id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.detections.length()").value(4))
