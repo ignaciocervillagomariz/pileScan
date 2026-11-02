@@ -1,0 +1,172 @@
+{
+  "pile_light_5.jpg": {
+    "width": 1200,
+    "height": 900,
+    "piece_count": 5,
+    "colors": [
+      {
+        "id": 1,
+        "name": "Blue"
+      },
+      {
+        "id": 15,
+        "name": "White"
+      },
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 15,
+        "name": "White"
+      },
+      {
+        "id": 2,
+        "name": "Green"
+      }
+    ],
+    "note": ""
+  },
+  "pile_dark_8.jpg": {
+    "width": 1200,
+    "height": 900,
+    "piece_count": 8,
+    "colors": [
+      {
+        "id": 25,
+        "name": "Orange"
+      },
+      {
+        "id": 1,
+        "name": "Blue"
+      },
+      {
+        "id": 2,
+        "name": "Green"
+      },
+      {
+        "id": 15,
+        "name": "White"
+      },
+      {
+        "id": 14,
+        "name": "Yellow"
+      },
+      {
+        "id": 14,
+        "name": "Yellow"
+      },
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 25,
+        "name": "Orange"
+      }
+    ],
+    "note": ""
+  },
+  "pile_gradient_12.jpg": {
+    "width": 1600,
+    "height": 1200,
+    "piece_count": 12,
+    "colors": [
+      {
+        "id": 1,
+        "name": "Blue"
+      },
+      {
+        "id": 2,
+        "name": "Green"
+      },
+      {
+        "id": 15,
+        "name": "White"
+      },
+      {
+        "id": 14,
+        "name": "Yellow"
+      },
+      {
+        "id": 14,
+        "name": "Yellow"
+      },
+      {
+        "id": 0,
+        "name": "Black"
+      },
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 25,
+        "name": "Orange"
+      },
+      {
+        "id": 1,
+        "name": "Blue"
+      },
+      {
+        "id": 0,
+        "name": "Black"
+      },
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 1,
+        "name": "Blue"
+      }
+    ],
+    "note": ""
+  },
+  "pile_single_1.jpg": {
+    "width": 900,
+    "height": 900,
+    "piece_count": 1,
+    "colors": [
+      {
+        "id": 15,
+        "name": "White"
+      }
+    ],
+    "note": ""
+  },
+  "pile_exif_rotated_6.jpg": {
+    "width": 1200,
+    "height": 900,
+    "piece_count": 6,
+    "colors": [
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 4,
+        "name": "Red"
+      },
+      {
+        "id": 2,
+        "name": "Green"
+      },
+      {
+        "id": 14,
+        "name": "Yellow"
+      },
+      {
+        "id": 2,
+        "name": "Green"
+      },
+      {
+        "id": 25,
+        "name": "Orange"
+      }
+    ],
+    "note": "stored sideways, EXIF orientation 6",
+    "displayed_width": 900,
+    "displayed_height": 1200
+  }
+}
