@@ -68,6 +68,22 @@ minutes, and set ranking returns `503` until it finishes. Check progress at
 **Offline / deterministic mode:** set `PART_CLASSIFIER=stub` in `.env` to skip the Brickognize
 API (fixed, geometry-based part guesses). The end-to-end tests use this mode.
 
+**Configuration:** every setting has a default. The common ones are in `.env.example`. Optional
+tuning variables:
+
+| Variable | Service | Default | Purpose |
+| --- | --- | --- | --- |
+| `INFERENCE_TIMEOUT_SECONDS` | backend | 120 | Read timeout for `POST /v1/recognize` |
+| `REBRICKABLE_API_URL` | backend | https://rebrickable.com | Rebrickable API base (part-ID mapping) |
+| `REBRICKABLE_MIN_INTERVAL_MS` | backend | 1100 | Minimum spacing between Rebrickable API calls |
+| `CATALOG_CACHE_DIR` | backend | /data/catalog | Cache for the downloaded CSVs (ETag revalidation) |
+| `CATALOG_MAX_AGE_DAYS` | backend | 30 | Re-import on startup when the catalog is older than this |
+| `BRICKOGNIZE_MAX_RETRIES` / `BRICKOGNIZE_TIMEOUT_S` | inference | see inference README | Retry/backoff tuning |
+| `MAX_IMAGE_BYTES` | inference | 15 MB | Upload limit |
+
+`CATALOG_BASE_URL` also accepts a `file:` URL that points at small CSVs, for a fast startup (see
+`backend/README.md`).
+
 **Photo tips:** use a plain background that contrasts with the pieces, keep pieces from
 touching or overlapping, shoot straight down, and use even light.
 
