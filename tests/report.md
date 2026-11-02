@@ -7,7 +7,7 @@ Date: 2026-11-02. Stack: `docker compose -f docker-compose.yml -f tests/compose.
 | Result | Count |
 | --- | --- |
 | PASS | 14 check groups (see table), 0 failures open |
-| FAIL | 1 open (BUG-2, intermittent, owner backend); BUG-1 found and fixed |
+| FAIL | 0 open (BUG-1 and BUG-2 found, fixed and re-verified) |
 | SKIPPED | 2 (real Brickognize smoke; manual real-photo tests) |
 
 ## Checks
@@ -17,7 +17,7 @@ Date: 2026-11-02. Stack: `docker compose -f docker-compose.yml -f tests/compose.
 | S2 | Spec validity, unique operationIds, no `nullable`+`allOf` | `pytest contract/test_spec.py` | PASS | the nullable check failed before spec commit 03b3468 (BUG-1) |
 | S4 | Frontend: no hand-written `/api/` URLs, no HttpClient/fetch/XHR/axios, no `any` outside generated client | `npm run test:static` | PASS | Allowlist: `fetch(photo.webPath)` in `photo-source.service.ts`, it fetches the camera plugin's local blob/file URL to build a Blob, not an API call. Any other fetch fails the check |
 | S5 | Generated client in sync with openapi.yaml | `cd frontend && npm run check:api` (run by S4) | PASS | |
-| U1 | Backend unit + IT | `cd backend && ./mvnw verify` | PASS | 52 tests (31 unit, 21 Testcontainers IT) |
+| U1 | Backend unit + IT | `cd backend && ./mvnw verify` | PASS | 53 tests (31 unit, 22 Testcontainers IT), final run |
 | U2 | Inference tests + lint | `cd inference && uv run pytest && uv run ruff check .` | PASS | 71 tests |
 | U3 | Frontend unit tests | `npm test` | PASS | 34 tests. Run in `node:24` Docker image because the local Node 22.16 is below Angular's minimum (22.22.3); not a project bug |
 | U4 | Frontend production build | `docker compose build frontend` (multi-stage) | PASS | built as part of the compose build |
@@ -46,9 +46,9 @@ E2E total: 16 tests (8 per project), all passed. Contract: 35 passed, 1 skipped.
 | --- | --- | --- | --- |
 | BUG-1 | team-lead | FIXED, verified | openapi.yaml combined `nullable: true` with `allOf: [$ref]` (Detection.bbox/part/color, PieceGroup.part/color, DetectionCreate.bbox). Strict OAS 3.0 validators reject the `null` the backend correctly returns. Fixed in 03b3468; strict validation now passes |
 
-| BUG-2 | backend | OPEN, fix 607f5bd did NOT resolve it | The first `POST /api/scans` after the inference container is recreated ends FAILED (`I/O error on POST .../v1/recognize: null`, sometimes `connect timed out`) although inference is healthy. After 607f5bd (retry once on a fresh connection) `pytest contract -m nonfunctional` failed 5 of 5 runs (before the fix: 1 of 3); backend logs show `retrying on a fresh connection` followed by the same error, so a stale pooled connection is not the whole story (suspect JVM DNS cache of the old container IP, 30 s default positive TTL, or the recreate window). Manual scans a few seconds later succeed. Note: with Brickognize unreachable, inference takes 9-13 s per scan (connection attempts per crop), which is slow but within limits. Root cause (diagnosed by team-lead): the JVM negative DNS cache. While inference is stopped Docker DNS returns NXDOMAIN, the JVM caches the failure for 10 s, and every call fails until it expires; the positive-TTL flag does not cover it. Backend is fixing it (negative TTL 0, root-cause logging). 10-run re-verify pending |
+| BUG-2 | backend | FIXED, verified (c22bafc) | The first `POST /api/scans` after the inference container is recreated ended FAILED. Root cause (diagnosed by team-lead): the JVM negative DNS cache. While inference is stopped Docker DNS returns NXDOMAIN and the JVM cached the failure for 10 s. Fix: `networkaddress.cache.negative.ttl=0` set in code (the system-property flag is ignored on JDK 21), plus retry and root-cause logging. Re-verified: `pytest contract -m nonfunctional` 10/10 passes (before: 5/5 failures on 607f5bd) |
 
-Re-run after the backend JPA refactor and the regenerated client (final state): `mvnw verify` 52 green, lint/static/check:api PASS, live contract 36 passed (strict spec), E2E 16/16. Failure-mode suite is intermittent because of BUG-2.
+Re-run after the backend JPA refactor and the regenerated client (final state): `mvnw verify` 52 green, lint/static/check:api PASS, live contract 36 passed (strict spec), E2E 16/16. Final run after c22bafc: `mvnw verify` 53 tests green (31 unit, 22 IT), contract 35 passed/1 skipped (real Brickognize), failure modes 10/10 repeated runs, E2E 16/16, static check PASS.
 
 Infra: inference logs showed requests from external IP 185.93.3.244 while port 8000 was published on all interfaces. Reported, not reproduced (logs rotated). Compose now binds published ports to 127.0.0.1 by default (81a8e19).
 
