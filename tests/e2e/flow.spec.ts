@@ -1,73 +1,76 @@
 import { expect, test } from '@playwright/test';
-import { pickPart, uploadPhoto, waitForCatalog } from './helpers';
+import { openEditor, photo, generated, pickColor, pickPart, selectPhoto, total, uploadPhoto, waitForCatalog } from './helpers';
 import { ids } from './testids';
+
+const PILE = photo('pile_light_5.jpg');
 
 test.beforeAll(async () => {
   test.setTimeout(35 * 60_000);
   await waitForCatalog();
 });
 
-test('capture -> review shows detections', async ({ page }) => {
-  await uploadPhoto(page, 'pile_light_5.jpg');
-  await expect(page.getByTestId(ids.detectionItem).first()).toBeVisible();
-  expect(await page.getByTestId(ids.detectionItem).count()).toBeGreaterThanOrEqual(1);
+test('capture shows preview, upload leads to review with detections and footer', async ({ page }) => {
+  await uploadPhoto(page, PILE);
+  expect(await total(page)).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId(ids.groupRow).first()).toBeVisible();
+  await expect(page.getByTestId(ids.disclaimer)).toBeVisible();
 });
 
-test('review: edit part, edit color, delete, add; then results', async ({ page }) => {
-  await uploadPhoto(page, 'pile_light_5.jpg');
-  const items = page.getByTestId(ids.detectionItem);
-  const initial = await items.count();
+test('review: edit part and color, delete, add, then results', async ({ page }) => {
+  await uploadPhoto(page, PILE);
+  const initial = await total(page);
   expect(initial).toBeGreaterThanOrEqual(2);
 
-  await items.first().getByTestId(ids.editPart).click();
+  await openEditor(page);
   await pickPart(page, '3001');
-  await page.getByTestId(ids.confirm).click();
-  await expect(items.first()).toContainText('3001');
+  await pickColor(page, 4);
+  await page.getByTestId(ids.save).click();
+  await expect(page.getByTestId(ids.dialog)).toBeHidden();
+  await expect(page.locator(`[data-testid="${ids.groupRow}"][data-part-num="3001"][data-color-id="4"]`).first()).toBeVisible();
 
-  await items.first().getByTestId(ids.editColor).click();
-  await page.getByTestId(ids.colorOption).filter({ hasText: /^\s*Red\s*$/ }).first().click();
-  await page.getByTestId(ids.confirm).click();
-  await expect(items.first()).toContainText('Red');
+  await openEditor(page, (await page.getByTestId(ids.groupRow).count()) - 1);
+  await page.getByTestId(ids.deleteDetection).click();
+  await expect.poll(() => total(page)).toBe(initial - 1);
 
-  await items.last().getByTestId(ids.delete).click();
-  await expect(items).toHaveCount(initial - 1);
-
-  await page.getByTestId(ids.add).click();
+  await page.getByTestId(ids.addPiece).click();
+  await page.getByTestId(ids.addWithoutBox).click();
   await pickPart(page, '3001');
-  await page.getByTestId(ids.colorOption).filter({ hasText: /^\s*Red\s*$/ }).first().click();
-  await page.getByTestId(ids.confirm).click();
-  await expect(items).toHaveCount(initial);
+  await pickColor(page, 4);
+  await page.getByTestId(ids.save).click();
+  await expect.poll(() => total(page)).toBe(initial);
 
-  await page.getByTestId(ids.seeResults).click();
-  await expect(page.getByTestId(ids.resultCard).first()).toBeVisible();
-  await expect(page.getByTestId(ids.matchPercent).first()).toContainText('%');
-  expect(await page.getByTestId(ids.resultCard).count()).toBeLessThanOrEqual(5);
+  await page.getByTestId(ids.findSets).click();
+  await expect(page).toHaveURL(/\/results$/);
+  const cards = page.getByTestId(ids.resultsCard);
+  await expect(cards.first()).toBeVisible({ timeout: 60_000 });
+  expect(await cards.count()).toBeLessThanOrEqual(5);
+  await expect(page.getByTestId(ids.resultsMatch).first()).toContainText('%');
+  await page.getByTestId(ids.missingToggle).first().click();
 });
 
-test('results page shows empty state when every piece is deleted', async ({ page }) => {
-  await uploadPhoto(page, 'pile_light_5.jpg');
-  const items = page.getByTestId(ids.detectionItem);
-  while ((await items.count()) > 0) {
-    const before = await items.count();
-    await items.first().getByTestId(ids.delete).click();
-    await expect(items).toHaveCount(before - 1);
+test('results reflect corrections: deleting every piece gives the empty state', async ({ page }) => {
+  await uploadPhoto(page, PILE);
+  for (let left = await total(page); left > 0; left = await total(page)) {
+    await openEditor(page);
+    await page.getByTestId(ids.deleteDetection).click();
+    await expect.poll(() => total(page)).toBeLessThan(left);
   }
-  await page.getByTestId(ids.seeResults).click();
+  await page.getByTestId(ids.findSets).click();
   await expect(page.getByTestId(ids.resultsEmpty)).toBeVisible();
 });
 
-test('invalid upload shows an error, not a crash', async ({ page }) => {
-  await page.goto('/');
-  await page.getByTestId(ids.fileInput).setInputFiles(
-    new URL('../fixtures/generated/fake.jpg', import.meta.url).pathname,
-  );
+test('invalid image shows an error, not a crash', async ({ page }) => {
+  await selectPhoto(page, generated('fake.jpg')).catch(() => undefined);
+  await page.getByTestId(ids.upload).click();
   await expect(page.getByTestId(ids.captureError)).toBeVisible({ timeout: 30_000 });
 });
 
-test('scan survives page reload (state lives in the backend)', async ({ page }) => {
-  await uploadPhoto(page, 'pile_light_5.jpg');
+test('scan survives page reload', async ({ page }) => {
+  await uploadPhoto(page, PILE);
   const url = page.url();
+  const before = await total(page);
   await page.reload();
-  await expect(page.getByTestId(ids.reviewCanvas)).toBeVisible();
+  await expect(page.getByTestId(ids.canvas)).toBeVisible();
   expect(page.url()).toBe(url);
+  expect(await total(page)).toBe(before);
 });
