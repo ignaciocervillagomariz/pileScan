@@ -46,11 +46,13 @@ E2E total: 16 tests (8 per project), all passed. Contract: 35 passed, 1 skipped.
 | --- | --- | --- | --- |
 | BUG-1 | team-lead | FIXED, verified | openapi.yaml combined `nullable: true` with `allOf: [$ref]` (Detection.bbox/part/color, PieceGroup.part/color, DetectionCreate.bbox). Strict OAS 3.0 validators reject the `null` the backend correctly returns. Fixed in 03b3468; strict validation now passes |
 
-| BUG-2 | backend | OPEN, not re-verified | The first `POST /api/scans` after the inference container is recreated intermittently ends FAILED (`I/O error on POST .../v1/recognize: null` or connect timeout) although inference is healthy. Repro: `pytest contract -m nonfunctional` repeatedly (about 1 in 3 runs fails `test_brickognize_down_yields_empty_candidates_and_warning`). Suspected stale pooled connection or DNS cache; a retry on IO error would likely fix it. Reported to backend, no fix verified yet |
+| BUG-2 | backend | OPEN, fix 607f5bd did NOT resolve it | The first `POST /api/scans` after the inference container is recreated ends FAILED (`I/O error on POST .../v1/recognize: null`, sometimes `connect timed out`) although inference is healthy. After 607f5bd (retry once on a fresh connection) `pytest contract -m nonfunctional` failed 5 of 5 runs (before the fix: 1 of 3); backend logs show `retrying on a fresh connection` followed by the same error, so a stale pooled connection is not the whole story (suspect JVM DNS cache of the old container IP, 30 s default positive TTL, or the recreate window). Manual scans a few seconds later succeed. Note: with Brickognize unreachable, inference takes 9-13 s per scan (connection attempts per crop), which is slow but within limits |
 
 Re-run after the backend JPA refactor and the regenerated client (final state): `mvnw verify` 52 green, lint/static/check:api PASS, live contract 36 passed (strict spec), E2E 16/16. Failure-mode suite is intermittent because of BUG-2.
 
-Infra note for team-lead: inference port 8000 is published on all interfaces and showed requests from an external IP; consider binding to 127.0.0.1 or not publishing it.
+Infra: inference logs showed requests from external IP 185.93.3.244 while port 8000 was published on all interfaces. Reported, not reproduced (logs rotated). Compose now binds published ports to 127.0.0.1 by default (81a8e19).
+
+| D6 | Published ports bound to 127.0.0.1 by default | `docker compose ps` | PASS | 8080, 4200, 8000 on 127.0.0.1; postgres not published |
 
 ## Observations (not bugs)
 - The "find sets" link is an `<a>` with `aria-disabled` and no href when no piece is identified, so the empty results state is only reachable by URL.
