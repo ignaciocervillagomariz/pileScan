@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fetchScan, openEditor, pickColor, pickPart, photo, total, uploadPhoto, waitForCatalog } from './helpers';
+import { fetchScan, pickColor, pickPart, photo, total, uploadPhoto, waitForCatalog } from './helpers';
 import { ids } from './testids';
 
 const PILE = photo('pile_light_5.jpg');
