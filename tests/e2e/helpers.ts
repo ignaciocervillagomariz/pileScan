@@ -5,6 +5,8 @@ import { ids } from './testids';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const fixture = (name: string) => path.join(here, '..', 'fixtures', 'generated', name);
+/** Shared synthetic piles owned by team-lead. */
+export const photo = (name: string) => path.join(here, '..', '..', 'fixtures', 'images', name);
 export const API = process.env.BACKEND_URL ?? 'http://localhost:8080';
 
 /** Results are 503 until the first catalog import has finished. */
@@ -23,7 +25,7 @@ export async function waitForCatalog(timeoutMs = 30 * 60_000): Promise<void> {
 
 export async function uploadPhoto(page: Page, file: string): Promise<void> {
   await page.goto('/');
-  await page.getByTestId(ids.fileInput).setInputFiles(fixture(file));
+  await page.getByTestId(ids.fileInput).setInputFiles(file.startsWith('pile_') ? photo(file) : fixture(file));
   await expect(page.getByTestId(ids.reviewCanvas)).toBeVisible({ timeout: 90_000 });
 }
 

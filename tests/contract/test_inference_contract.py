@@ -75,3 +75,21 @@ def test_real_brickognize_smoke(inference_url, inference_validator, fixtures_dir
         pytest.skip("Brickognize unreachable")
     body = recognize(inference_url, fixtures_dir / "pile-small.jpg").json()
     assert not list(inference_validator.iter_errors(body))
+
+
+def test_detection_counts_match_manifest(inference_url, inference_up) -> None:
+    """Shared synthetic piles in /fixtures/images: detected count must be within 1 of the manifest."""
+    import json
+
+    from conftest import ROOT
+
+    images = ROOT / "fixtures/images"
+    manifest = json.loads((images / "manifest.json").read_text())
+    entries = manifest.get("images", manifest) if isinstance(manifest, dict) else manifest
+    assert entries, "empty manifest"
+    for name, meta in (entries.items() if isinstance(entries, dict) else ((e["file"], e) for e in entries)):
+        expected = meta.get("piece_count")
+        if expected is None or not (images / name).exists():
+            continue
+        got = len(recognize(inference_url, images / name).json()["detections"])
+        assert abs(got - expected) <= 1, f"{name}: expected {expected}, got {got}"

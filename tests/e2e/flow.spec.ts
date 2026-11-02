@@ -8,13 +8,13 @@ test.beforeAll(async () => {
 });
 
 test('capture -> review shows detections', async ({ page }) => {
-  await uploadPhoto(page, 'pile-small.jpg');
+  await uploadPhoto(page, 'pile_light_5.jpg');
   await expect(page.getByTestId(ids.detectionItem).first()).toBeVisible();
   expect(await page.getByTestId(ids.detectionItem).count()).toBeGreaterThanOrEqual(1);
 });
 
 test('review: edit part, edit color, delete, add; then results', async ({ page }) => {
-  await uploadPhoto(page, 'pile-small.jpg');
+  await uploadPhoto(page, 'pile_light_5.jpg');
   const items = page.getByTestId(ids.detectionItem);
   const initial = await items.count();
   expect(initial).toBeGreaterThanOrEqual(2);
@@ -45,7 +45,7 @@ test('review: edit part, edit color, delete, add; then results', async ({ page }
 });
 
 test('results page shows empty state when every piece is deleted', async ({ page }) => {
-  await uploadPhoto(page, 'pile-small.jpg');
+  await uploadPhoto(page, 'pile_light_5.jpg');
   const items = page.getByTestId(ids.detectionItem);
   while ((await items.count()) > 0) {
     const before = await items.count();
@@ -65,7 +65,7 @@ test('invalid upload shows an error, not a crash', async ({ page }) => {
 });
 
 test('scan survives page reload (state lives in the backend)', async ({ page }) => {
-  await uploadPhoto(page, 'pile-small.jpg');
+  await uploadPhoto(page, 'pile_light_5.jpg');
   const url = page.url();
   await page.reload();
   await expect(page.getByTestId(ids.reviewCanvas)).toBeVisible();
