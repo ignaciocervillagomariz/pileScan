@@ -59,3 +59,15 @@ export async function pickPart(page: Page, partNum: string): Promise<void> {
 export async function pickColor(page: Page, colorId: number): Promise<void> {
   await page.locator(`[data-testid="${ids.colorOption}"][data-color-id="${colorId}"]`).first().click();
 }
+
+export interface ApiDetection { id: string; bbox: { x: number; y: number; width: number; height: number } | null }
+export interface ApiScan { id: string; image: { width: number; height: number }; detections: ApiDetection[] }
+
+export async function fetchScan(page: Page): Promise<ApiScan> {
+  const id = page.url().match(/\/scan\/([0-9a-f-]{36})/)?.[1];
+  if (!id) throw new Error(`no scan id in ${page.url()}`);
+  const api = await request.newContext();
+  const res = await api.get(`${API}/api/scans/${id}`);
+  expect(res.ok()).toBeTruthy();
+  return res.json();
+}
