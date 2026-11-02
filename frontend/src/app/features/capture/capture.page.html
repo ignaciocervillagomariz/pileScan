@@ -1,0 +1,98 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>PileScan</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <main class="page-column">
+    <section class="hero">
+      <h1>What can you build from this pile?</h1>
+      <p>
+        Photograph your loose bricks. PileScan counts every piece and finds the official sets they
+        most likely came from.
+      </p>
+    </section>
+
+    @if (errorMessage(); as message) {
+      <div class="banner error" role="alert" data-testid="capture-error">{{ message }}</div>
+    }
+
+    @if (selected(); as photo) {
+      <section class="card preview" aria-label="Selected photo">
+        <img [src]="photo.previewUrl" alt="Preview of the photo you selected" data-testid="photo-preview" />
+        <div class="actions">
+          <button
+            type="button"
+            class="btn primary"
+            data-testid="upload-button"
+            [disabled]="uploading()"
+            (click)="upload()"
+          >
+            Analyze photo
+          </button>
+          <button
+            type="button"
+            class="btn"
+            data-testid="choose-another-button"
+            [disabled]="uploading()"
+            (click)="clear()"
+          >
+            Choose another
+          </button>
+        </div>
+      </section>
+    } @else {
+      <section class="card sources" aria-label="Add a photo">
+        @if (source.nativeCamera) {
+          <button type="button" class="btn primary" data-testid="camera-button" (click)="takeNativePhoto()">
+            Take a photo
+          </button>
+        } @else {
+          <label class="btn primary" for="capture-input">Take a photo</label>
+        }
+        <label class="btn" for="gallery-input">Upload from gallery</label>
+
+        <!-- Visually hidden, not display:none, so the inputs stay focusable and testable. -->
+        <input
+          id="capture-input"
+          class="visually-hidden"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          capture="environment"
+          data-testid="capture-input"
+          (change)="onFileChosen($event)"
+        />
+        <input
+          id="gallery-input"
+          class="visually-hidden"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          data-testid="gallery-input"
+          (change)="onFileChosen($event)"
+        />
+      </section>
+    }
+
+    <section class="card tips" aria-labelledby="tips-heading">
+      <h2 id="tips-heading">For the best results</h2>
+      <ul data-testid="photo-tips">
+        @for (tip of tips; track tip) {
+          <li>{{ tip }}</li>
+        }
+      </ul>
+    </section>
+  </main>
+
+  <app-footer />
+
+  @if (uploading()) {
+    <div class="overlay" role="status" aria-live="polite" data-testid="upload-loading">
+      <div class="overlay-box">
+        <ion-spinner name="crescent" aria-hidden="true" />
+        <p><strong>Analyzing your pile...</strong></p>
+        <p>This can take up to a minute for big piles. Please keep this page open.</p>
+      </div>
+    </div>
+  }
+</ion-content>

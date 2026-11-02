@@ -1,0 +1,122 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text="" aria-label="Back to capture" />
+    </ion-buttons>
+    <ion-title>Review pieces</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <main class="page-column">
+    @if (!loaded()) {
+      <div class="center" role="status" data-testid="review-loading">
+        <ion-spinner name="crescent" aria-hidden="true" /> Loading your scan...
+      </div>
+    } @else if (!scan()) {
+      <div class="banner error" role="alert" data-testid="review-error">
+        {{ store.error()?.status === 404 ? 'We could not find that scan.' : (store.error()?.message ?? 'Could not load the scan.') }}
+        <p><a routerLink="/">Start a new scan</a></p>
+      </div>
+    } @else {
+      @let current = scan()!;
+
+      @if (current.status === 'FAILED') {
+        <div class="banner error" role="alert" data-testid="scan-failed">
+          <strong>We could not analyze this photo.</strong>
+          {{ current.errorMessage ?? 'The recognition service is unavailable.' }}
+          You can add pieces by hand below, or <a routerLink="/">try another photo</a>.
+        </div>
+      }
+
+      @for (warning of current.warnings; track warning) {
+        <div class="banner warning" data-testid="scan-warning">{{ warning }}</div>
+      }
+
+      @if (store.error(); as error) {
+        <div class="banner error" role="alert" data-testid="review-action-error">{{ error.message }}</div>
+      }
+
+      <section class="card summary" aria-label="Totals">
+        <p class="total">
+          <span class="number" data-testid="total-count">{{ summary().totalPieces }}</span>
+          <span>{{ summary().totalPieces === 1 ? 'piece' : 'pieces' }} found</span>
+        </p>
+        <p class="sub" data-testid="summary-detail">
+          {{ summary().distinctParts }} distinct part and color {{ summary().distinctParts === 1 ? 'combination' : 'combinations' }}
+          @if (summary().unidentifiedPieces > 0) {
+            &middot; <strong class="warn">{{ summary().unidentifiedPieces }} unidentified</strong>
+          }
+        </p>
+      </section>
+
+      @if (imageSize(); as size) {
+        <section aria-label="Photo with detected pieces">
+          <app-bbox-canvas
+            [imageSize]="size"
+            [photo]="photo.image()"
+            [detections]="store.detections()"
+            [selectedId]="store.selectedId()"
+            [drawing]="drawing()"
+            (detectionTapped)="onDetectionTapped($event)"
+            (boxDrawn)="onBoxDrawn($event)"
+          />
+          <p class="legend" aria-label="Box colors">
+            <span class="dot high"></span> sure
+            <span class="dot medium"></span> check
+            <span class="dot low"></span> unsure. Tap a box to fix it.
+          </p>
+        </section>
+      }
+
+      @if (drawing()) {
+        <div class="card draw-bar" role="status" data-testid="draw-hint">
+          <p><strong>Drag on the photo</strong> to mark the missed piece.</p>
+          <div class="row">
+            <button type="button" class="btn" data-testid="add-without-box-button" (click)="addWithoutBox()">Add without a box</button>
+            <button type="button" class="btn" data-testid="cancel-draw-button" (click)="cancelDrawing()">Cancel</button>
+          </div>
+        </div>
+      } @else {
+        <button type="button" class="btn" data-testid="add-piece-button" (click)="startAdding()">Add a missed piece</button>
+      }
+
+      <section aria-labelledby="pieces-heading">
+        <h2 id="pieces-heading">Pieces</h2>
+        <app-group-list
+          [groups]="summary().groups"
+          [detections]="store.detections()"
+          [photoSize]="imageSize()"
+          (edit)="onDetectionTapped($event)"
+        />
+      </section>
+
+      <section class="next">
+        <a
+          class="btn primary"
+          data-testid="find-sets-button"
+          [routerLink]="identifiedPieces() > 0 ? ['/scan', current.id, 'results'] : null"
+          [attr.aria-disabled]="identifiedPieces() === 0"
+          [class.disabled]="identifiedPieces() === 0"
+        >
+          Find matching sets
+        </a>
+        @if (identifiedPieces() === 0) {
+          <p class="sub">Identify at least one piece to see matching sets.</p>
+        }
+      </section>
+    }
+  </main>
+
+  <app-footer />
+
+  @if (editor()) {
+    <app-detection-editor
+      [detection]="editedDetection()"
+      [busy]="store.loading()"
+      (saved)="onSaved($event)"
+      (deleted)="onDeleted()"
+      (dismissed)="closeEditor()"
+    />
+  }
+</ion-content>

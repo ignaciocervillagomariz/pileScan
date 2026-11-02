@@ -1,0 +1,164 @@
+<dialog
+  #dialog
+  class="sheet"
+  data-testid="edit-dialog"
+  aria-labelledby="editor-title"
+  (close)="onDialogClose()"
+  (cancel)="onDialogClose()"
+>
+  <form method="dialog" class="content" (submit)="$event.preventDefault(); save()">
+    <header class="head">
+      <h2 id="editor-title">{{ isEdit() ? 'Fix this piece' : 'Add a missed piece' }}</h2>
+      <button type="button" class="close" aria-label="Close" data-testid="edit-close" (click)="close()">&times;</button>
+    </header>
+
+    @if (loadError(); as message) {
+      <div class="banner error" role="alert" data-testid="edit-error">{{ message }}</div>
+    }
+
+    <section aria-labelledby="part-heading">
+      <h3 id="part-heading">Part</h3>
+
+      @if (part(); as current) {
+        <div class="current" data-testid="edit-current-part">
+          <app-piece-thumb [imageUrl]="current.imageUrl" />
+          <span><strong>{{ current.name }}</strong><br /><small>#{{ current.partNum }}</small></span>
+        </div>
+      } @else {
+        <p class="hint">No part chosen yet.</p>
+      }
+
+      @if (partCandidates().length > 0) {
+        <p class="label" id="part-candidates-label">Suggestions</p>
+        <ul class="chips" aria-labelledby="part-candidates-label">
+          @for (candidate of partCandidates(); track candidate.key; let i = $index) {
+            <li>
+              <button
+                type="button"
+                class="chip"
+                [attr.data-testid]="'part-candidate-' + i"
+                [attr.data-part-num]="candidate.part.partNum"
+                [class.active]="candidate.part.partNum === part()?.partNum"
+                [attr.aria-pressed]="candidate.part.partNum === part()?.partNum"
+                (click)="pickPart(candidate.part)"
+              >
+                <app-piece-thumb [imageUrl]="candidate.part.imageUrl" style="--thumb-size: 40px" />
+                <span>{{ candidate.part.name }}<small> &middot; {{ percent(candidate.score) }}</small></span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      <label class="label" for="part-search">Search by name or part number</label>
+      <input
+        id="part-search"
+        type="search"
+        class="field"
+        autocomplete="off"
+        placeholder="e.g. 3001 or Brick 2 x 4"
+        data-testid="part-search-input"
+        [value]="partQuery()"
+        (input)="onPartInput($event)"
+      />
+      @if (searching()) {
+        <p class="hint" role="status">Searching...</p>
+      }
+      @if (partResults().length > 0) {
+        <ul class="results" data-testid="part-results" aria-label="Matching parts">
+          @for (result of partResults(); track result.partNum) {
+            <li>
+              <button
+                type="button"
+                class="result"
+                data-testid="part-option"
+                [attr.data-part-num]="result.partNum"
+                (click)="pickPart(result)"
+              >
+                <app-piece-thumb [imageUrl]="result.imageUrl" style="--thumb-size: 40px" />
+                <span>{{ result.name }}<small> &middot; #{{ result.partNum }}</small></span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else if (partQuery().trim() && !searching()) {
+        <p class="hint" data-testid="part-no-results">No parts found.</p>
+      }
+    </section>
+
+    <section aria-labelledby="color-heading">
+      <h3 id="color-heading">Color</h3>
+
+      @if (selectedColorRef(); as chosen) {
+        <p class="current" data-testid="edit-current-color">
+          <app-color-swatch [rgb]="chosen.rgb" style="--swatch-size: 28px" />
+          <strong>{{ chosen.name }}</strong>
+        </p>
+      }
+
+      @if (colorCandidates().length > 0) {
+        <p class="label" id="color-candidates-label">Suggestions</p>
+        <ul class="chips" aria-labelledby="color-candidates-label">
+          @for (candidate of colorCandidates(); track candidate.color.id; let i = $index) {
+            <li>
+              <button
+                type="button"
+                class="chip"
+                [attr.data-testid]="'color-candidate-' + i"
+                [attr.data-color-id]="candidate.color.id"
+                [class.active]="candidate.color.id === colorId()"
+                [attr.aria-pressed]="candidate.color.id === colorId()"
+                (click)="pickColor(candidate.color.id)"
+              >
+                <app-color-swatch [rgb]="candidate.color.rgb" style="--swatch-size: 28px" />
+                <span>{{ candidate.color.name }}<small> &middot; {{ percent(candidate.score) }}</small></span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      <label class="label" for="color-search">All colors</label>
+      <input
+        id="color-search"
+        type="search"
+        class="field"
+        autocomplete="off"
+        placeholder="Filter colors"
+        data-testid="color-search-input"
+        [value]="colorQuery()"
+        (input)="onColorInput($event)"
+      />
+      <ul class="colors" data-testid="color-list" aria-label="Colors">
+        @for (option of filteredColors(); track option.id) {
+          <li>
+            <button
+              type="button"
+              class="color-option"
+              data-testid="color-option"
+              [attr.data-color-id]="option.id"
+              [class.active]="option.id === colorId()"
+              [attr.aria-pressed]="option.id === colorId()"
+              (click)="pickColor(option.id)"
+            >
+              <app-color-swatch [rgb]="option.rgb" style="--swatch-size: 24px" />
+              <span>{{ option.name }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <footer class="actions">
+      <button type="submit" class="btn primary" data-testid="edit-save" [disabled]="!canSave() || busy()">
+        {{ isEdit() ? 'Save changes' : 'Add piece' }}
+      </button>
+      @if (isEdit()) {
+        <button type="button" class="btn danger" data-testid="delete-detection-button" [disabled]="busy()" (click)="deleted.emit()">
+          Delete (not a piece)
+        </button>
+      }
+      <button type="button" class="btn" data-testid="edit-cancel" (click)="close()">Cancel</button>
+    </footer>
+  </form>
+</dialog>

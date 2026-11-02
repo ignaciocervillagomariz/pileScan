@@ -1,0 +1,48 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/scan/' + id()" text="" aria-label="Back to review" />
+    </ion-buttons>
+    <ion-title>Matching sets</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <main class="page-column">
+    @if (loading()) {
+      <div class="center" role="status" data-testid="results-loading">
+        <ion-spinner name="crescent" aria-hidden="true" /> Comparing your pieces with official sets...
+      </div>
+    } @else if (error(); as problem) {
+      <div class="banner" [class.warning]="catalogLoading()" [class.error]="!catalogLoading()" role="alert" data-testid="results-error">
+        <p>
+          <strong>{{ catalogLoading() ? 'The catalog is still loading.' : 'Could not load results.' }}</strong>
+          {{ problem.message }}
+        </p>
+        <button type="button" class="btn" data-testid="results-retry-button" (click)="retry()">Try again</button>
+      </div>
+    } @else {
+      @if (response(); as data) {
+        <p class="intro" data-testid="results-intro">
+          Based on <strong>{{ data.pilePieces }}</strong> identified {{ data.pilePieces === 1 ? 'piece' : 'pieces' }}.
+        </p>
+      }
+      @if (candidates().length === 0) {
+        <div class="card empty" data-testid="results-empty">
+          <p><strong>No matching sets found.</strong></p>
+          <p>Try fixing unidentified pieces on the review screen, or add the pieces that were missed.</p>
+        </div>
+      } @else {
+        <ol class="cards" data-testid="results-list">
+          @for (candidate of candidates(); track candidate.set.setNum) {
+            <li><app-set-card [candidate]="candidate" /></li>
+          }
+        </ol>
+      }
+    }
+
+    <a class="btn" data-testid="back-to-review-link" [routerLink]="['/scan', id()]">Back to review</a>
+  </main>
+
+  <app-footer />
+</ion-content>

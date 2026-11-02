@@ -1,0 +1,76 @@
+@let c = candidate();
+<article class="set" data-testid="results-card" [attr.data-set-num]="c.set.setNum" [attr.aria-labelledby]="'set-name-' + c.rank">
+  <div class="top">
+    <div class="image">
+      @if (hasImage()) {
+        <img [src]="c.set.imageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" (error)="imageFailed.set(true)" />
+      } @else {
+        <span class="no-image" aria-hidden="true">No image</span>
+      }
+    </div>
+    <div class="info">
+      <p class="rank">#{{ c.rank }}</p>
+      <h3 [id]="'set-name-' + c.rank" data-testid="results-card-name">{{ c.set.name }}</h3>
+      <p class="meta">
+        <span data-testid="results-card-setnum">{{ c.set.setNum }}</span> &middot;
+        <span data-testid="results-card-year">{{ c.set.year }}</span>
+        @if (c.set.themeName) {
+          &middot; {{ c.set.themeName }}
+        }
+        &middot; {{ c.set.numParts }} parts
+      </p>
+    </div>
+    <p class="match" data-testid="results-card-match">
+      <span class="big">{{ matchText(c.matchPercent) }}</span>
+      <span class="small">match</span>
+    </p>
+  </div>
+
+  <dl class="metrics">
+    <div>
+      <dt>Pile pieces found in set</dt>
+      <dd data-testid="results-card-coverage">{{ percent(c.pileCoverage) }}</dd>
+      <div class="bar" aria-hidden="true"><span [style.width.%]="c.pileCoverage * 100"></span></div>
+    </div>
+    <div>
+      <dt>Set completeness</dt>
+      <dd data-testid="results-card-completeness">{{ percent(c.setCompleteness) }}</dd>
+      <div class="bar" aria-hidden="true"><span [style.width.%]="c.setCompleteness * 100"></span></div>
+    </div>
+  </dl>
+
+  <p class="counts">
+    {{ c.matchedPieces }} pieces matched &middot; <span data-testid="results-card-missing-count">{{ c.missingPieces }}</span> missing to complete
+  </p>
+
+  @if (c.missingParts.length > 0) {
+    <button
+      type="button"
+      class="toggle"
+      data-testid="missing-toggle"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-controls]="'missing-' + c.rank"
+      (click)="toggle()"
+    >
+      {{ expanded() ? 'Hide missing parts' : 'Show missing parts' }}
+    </button>
+
+    @if (expanded()) {
+      <ul class="missing" [id]="'missing-' + c.rank" data-testid="missing-list">
+        @for (line of c.missingParts; track line.part.partNum + '|' + line.color.id) {
+          <li class="line" data-testid="missing-row">
+            <app-piece-thumb [imageUrl]="line.part.imageUrl" style="--thumb-size: 44px" />
+            <span class="what">
+              <span class="name">{{ line.part.name }}</span>
+              <span class="color"><app-color-swatch [rgb]="line.color.rgb" /> {{ line.color.name }}</span>
+            </span>
+            <span class="qty" data-testid="missing-qty">have {{ line.quantityHave }} / need {{ line.quantityNeeded }}</span>
+          </li>
+        }
+      </ul>
+      @if (listedMissing() < missingTotal()) {
+        <p class="more">Showing the largest gaps first. {{ missingTotal() - listedMissing() }} more pieces are missing.</p>
+      }
+    }
+  }
+</article>
