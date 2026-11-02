@@ -375,13 +375,9 @@ components:
       required: [count, detectionIds]
       properties:
         part:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/PartRef' }]
-          nullable: true
+          $ref: '#/components/schemas/NullablePartRef'
         color:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/ColorRef' }]
-          nullable: true
+          $ref: '#/components/schemas/NullableColorRef'
         count: { type: integer, minimum: 1 }
         detectionIds:
           type: array
@@ -407,10 +403,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         bbox:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/BBox' }]
-          nullable: true
-          description: Null for manually added pieces without a box.
+          $ref: '#/components/schemas/NullableBBox'
         source: { $ref: '#/components/schemas/DetectionSource' }
         corrected: { type: boolean, description: True if a user changed part or color. }
         confidence:
@@ -419,14 +412,9 @@ components:
           maximum: 1
           description: Combined score used to color boxes (detection × top part × top color). 1.0 for user-corrected or manual pieces.
         part:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/PartRef' }]
-          nullable: true
-          description: Current part (top candidate or user choice). Null if unidentified.
+          $ref: '#/components/schemas/NullablePartRef'
         color:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/ColorRef' }]
-          nullable: true
+          $ref: '#/components/schemas/NullableColorRef'
         partCandidates:
           type: array
           maxItems: 3
@@ -448,9 +436,7 @@ components:
         partNum: { type: string }
         colorId: { type: integer }
         bbox:
-          type: object
-          allOf: [{ $ref: '#/components/schemas/BBox' }]
-          nullable: true
+          $ref: '#/components/schemas/NullableBBox'
     DetectionUpdate:
       type: object
       minProperties: 1
@@ -464,6 +450,34 @@ components:
         partNum: { type: string, example: '3001' }
         name: { type: string, example: 'Brick 2 x 4' }
         imageUrl: { type: string, nullable: true }
+    NullableBBox:
+      type: object
+      nullable: true
+      description: BBox or null (e.g. manually added pieces without a box). Same fields as BBox.
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer, minimum: 0 }
+        y: { type: integer, minimum: 0 }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+    NullablePartRef:
+      type: object
+      nullable: true
+      description: PartRef or null (unidentified piece). Same fields as PartRef.
+      required: [partNum, name]
+      properties:
+        partNum: { type: string, example: '3001' }
+        name: { type: string, example: 'Brick 2 x 4' }
+        imageUrl: { type: string, nullable: true }
+    NullableColorRef:
+      type: object
+      nullable: true
+      description: ColorRef or null. Same fields as ColorRef.
+      required: [id, name, rgb]
+      properties:
+        id: { type: integer, example: 4 }
+        name: { type: string, example: Red }
+        rgb: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', example: '#C91A09' }
     ColorRef:
       type: object
       required: [id, name, rgb]
