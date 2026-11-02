@@ -31,6 +31,8 @@ const MAX_CANVAS_EDGE = 1800;
       role="img"
       [attr.aria-label]="ariaLabel()"
       data-testid="scan-canvas"
+      [attr.data-selected-detection]="selectedId() ?? ''"
+      [attr.data-highlighted-detections]="highlightedIds().join(',')"
       (click)="onClick($event)"
       (pointerdown)="onPointerDown($event)"
       (pointermove)="onPointerMove($event)"
@@ -62,6 +64,8 @@ export class BboxCanvas {
   readonly photo = input.required<HTMLImageElement | null>();
   readonly detections = input.required<readonly Detection[]>();
   readonly selectedId = input<string | null>(null);
+  /** Extra boxes to emphasize, e.g. every piece of the expanded list group. */
+  readonly highlightedIds = input<readonly string[]>([]);
   readonly drawing = input(false);
 
   readonly detectionTapped = output<string>();
@@ -138,6 +142,7 @@ export class BboxCanvas {
     const image = this.photo();
     const scale = imageToCanvasScale(this.imageSize(), this.canvasSize());
     const selectedId = this.selectedId();
+    const highlighted = new Set(this.highlightedIds());
     const lineWidth = Math.max(3, element.width / 220);
     const draft = this.draftBox();
 
@@ -150,7 +155,7 @@ export class BboxCanvas {
         continue;
       }
       const box = scaleBBox(detection.bbox, scale);
-      const selected = detection.id === selectedId;
+      const selected = detection.id === selectedId || highlighted.has(detection.id);
       const color = confidenceColor(detection.confidence);
       if (selected) {
         context.fillStyle = color + '33';

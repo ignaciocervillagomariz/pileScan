@@ -57,6 +57,7 @@
             [photo]="photo.image()"
             [detections]="store.detections()"
             [selectedId]="store.selectedId()"
+            [highlightedIds]="highlightedIds()"
             [drawing]="drawing()"
             (detectionTapped)="onDetectionTapped($event)"
             (boxDrawn)="onBoxDrawn($event)"
@@ -88,6 +89,7 @@
           [detections]="store.detections()"
           [photoSize]="imageSize()"
           (edit)="onDetectionTapped($event)"
+          (highlight)="highlightedIds.set($event)"
         />
       </section>
 

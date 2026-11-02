@@ -87,6 +87,8 @@ export class GroupList {
   readonly photoSize = input<Size | null>(null);
 
   readonly edit = output<string>();
+  /** Detection ids of the expanded groups, so the canvas can highlight their boxes. */
+  readonly highlight = output<string[]>();
 
   private readonly open = signal<ReadonlySet<string>>(new Set());
 
@@ -128,5 +130,11 @@ export class GroupList {
       }
       return next;
     });
+    const openKeys = this.open();
+    this.highlight.emit(
+      this.rows()
+        .filter((r) => openKeys.has(r.key))
+        .flatMap((r) => r.group.detectionIds),
+    );
   }
 }

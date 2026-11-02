@@ -47,6 +47,7 @@ export class ReviewPage {
 
   protected readonly loaded = signal(false);
   protected readonly drawing = signal(false);
+  protected readonly highlightedIds = signal<string[]>([]);
   protected readonly editor = signal<EditorState | null>(null);
 
   protected readonly scan = this.store.scan;
