@@ -79,18 +79,31 @@ Notable trade-offs made during the build:
   counted in set totals.
 
 ## Verification
-[tests/report.md](../tests/report.md): every check group passes, with no open bugs. That
-covers 52 backend tests, 71 inference tests, 34 frontend unit tests, 35 contract tests (strict
-against the OpenAPI spec and JSON Schema), 2 failure-mode tests, 16 E2E tests (mobile and
-desktop) and the compose health checks. One contract bug (`nullable` + `allOf`) was found by
-QA and fixed.
+[tests/report.md](../tests/report.md): every check group passes, with **0 open bugs**. That
+covers 53 backend tests, 71 inference tests, 34 frontend unit tests, 35 contract tests (strict
+against the OpenAPI spec and JSON Schema), 16 E2E tests (mobile and desktop), the compose
+health checks and the failure-mode suite (10/10 consecutive runs). Skipped: the
+real-Brickognize smoke test (the E2E stack uses the stub) and the manual real-photo tests.
+
+Bugs found and fixed during integration:
+- **BUG-1 (contract):** `nullable` next to `allOf` is invalid under OAS 3.0.3, so strict
+  validators rejected `null` boxes and parts. Fixed with dedicated `Nullable*` schemas.
+- **BUG-2 (backend):** the first scans after the inference container restarted failed for
+  about 10 s. Root cause: the JVM **negative DNS cache**. While inference was stopped, Docker
+  DNS answered NXDOMAIN, and JDK 21's `java.security` caches that for 10 s, overriding the
+  `-Dsun.net.inetaddr.negative.ttl` flag. Fixed by setting the security property
+  `networkaddress.cache.negative.ttl=0` at startup, plus a single 1 s retry on transport
+  errors. A first fix that only retried did not help, and QA caught it.
+- **Exposure (infra):** published ports were bound to all interfaces. The inference service is
+  internal and the API has no auth, so ports now bind to `127.0.0.1` by default
+  (`BIND_ADDRESS` opts in to LAN access). QA had reported requests from an external IP in the
+  inference logs. That was not reproduced, because the logs had rotated.
 
 The lead ran a final check on the **default** compose with the real Brickognize classifier:
-- All 4 services were healthy, and the three URLs answered 200.
+- All 4 services were healthy, with ports on 127.0.0.1, and the three URLs answered 200.
 - The catalog import SUCCEEDED.
-- A scan of `fixtures/images/pile_light_5.jpg` found all 5 pieces and estimated their colors,
-  and ranking returned sets.
-- `strategy=rarity-weighted` returned 501.
+- Scans of `pile_light_5.jpg` (5 pieces) and `pile_dark_8.jpg` (8 pieces) found every piece.
+- Ranking returned sets with both metrics, and `strategy=rarity-weighted` returned 501.
 
 ## Known limitations
 - The classical detector merges touching pieces and misses pieces close to the background
@@ -102,6 +115,7 @@ The lead ran a final check on the **default** compose with the real Brickognize 
 - The "find sets" action is disabled when no piece is identified. This is intentional,
   because ranking needs at least one identified part+color.
 - Local frontend development needs Node ≥ 22.22.3. Docker builds use Node 24.
+- With Brickognize unreachable, a scan takes 9–13 s because of per-crop retries before giving up.
 
 ## How to run
 ```bash
