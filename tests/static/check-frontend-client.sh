@@ -17,9 +17,14 @@ excl=()
 echo "== hand-written /api URLs outside the generated client =="
 if grep -rnE "['\"\`]/?(https?://[^'\"\`]+)?/api/" "$SRC" --include='*.ts' --include='*.html' "${excl[@]}" --exclude='*.spec.ts'; then fail=1; fi
 
-echo "== HttpClient/XHR/axios usage outside the generated client =="
-if grep -rnE "HttpClient|XMLHttpRequest|axios" "$SRC" --include='*.ts' "${excl[@]}" --exclude='*.spec.ts' \
-   | grep -vE "provideHttpClient|app\.config"; then fail=1; fi
+# Allowlist (reason): photo-source.service.ts fetches the camera plugin's local webPath (blob:/data:/file URL)
+# to turn it into a Blob. It is not an API call.
+FETCH_ALLOWLIST='photo-source\.service\.ts:[0-9]+:.*fetch\(photo\.webPath\)'
+
+echo "== HttpClient/fetch/XHR/axios usage outside the generated client =="
+if grep -rnE "HttpClient|fetch\(|XMLHttpRequest|axios" "$SRC" --include='*.ts' "${excl[@]}" --exclude='*.spec.ts' \
+   | grep -vE "provideHttpClient|app\.config" \
+   | grep -vE "$FETCH_ALLOWLIST"; then fail=1; fi
 
 echo "== 'any' type =="
 if grep -rnE ":\s*any\b|<any>|as any" "$SRC" --include='*.ts' "${excl[@]}"; then fail=1; fi
