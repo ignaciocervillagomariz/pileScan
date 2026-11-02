@@ -16,9 +16,9 @@ BORDER_FRACTION = 0.03
 MIN_AREA_FRACTION = 0.0002
 MAX_AREA_FRACTION = 0.25
 # Lightness is down-weighted so soft shadows (mostly an L change) do not become pieces.
-L_WEIGHT = 0.7
-MIN_THRESHOLD = 10.0
-MAX_THRESHOLD = 25.0
+L_WEIGHT = 0.8
+MIN_THRESHOLD = 5.0
+MAX_THRESHOLD = 8.0
 CONTRAST_REFERENCE = 40.0
 BORDER_TOUCH_PENALTY = 0.8
 
