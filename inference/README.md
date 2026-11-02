@@ -105,6 +105,8 @@ The palette is `colors/data/rebrickable_colors.json`, generated from Rebrickable
 `colors.csv.gz` by `scripts/refresh_palette.py`. It keeps solid colors only and drops
 `-1 [Unknown]`, `9999 [No Color]`, Modulex and HO colors, and colors used on fewer than 1000
 parts (one-off or toy-line colors that only create near-duplicate matches). Result: 56 colors.
+A piece in a pruned rare color is therefore mapped to its nearest common color, and the user
+corrects it in the Review screen.
 
 ### Part classifier `brickognize-v1`
 What was verified on 2026-11-02 against `https://api.brickognize.com/openapi.json` (v1.0.0) and
