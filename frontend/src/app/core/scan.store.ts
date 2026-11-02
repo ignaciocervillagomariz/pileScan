@@ -5,7 +5,8 @@ import { deleteDetection } from './api/generated/fn/detections/delete-detection'
 import { updateDetection } from './api/generated/fn/detections/update-detection';
 import { createScan } from './api/generated/fn/scans/create-scan';
 import { getScan } from './api/generated/fn/scans/get-scan';
-import { BBox, Detection, DetectionUpdate, Scan } from './api/generated/models';
+import { Detection, DetectionUpdate, Scan } from './api/generated/models';
+import { BBox } from '../shared/bbox-geometry';
 import { AppError, toAppError } from './api-error';
 import { buildSummary } from '../shared/grouping';
 

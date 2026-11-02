@@ -9,7 +9,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/angular';
-import { BBox } from '../../core/api/generated/models';
+import { BBox } from '../../shared/bbox-geometry';
 import { ScanPhotoService } from '../../core/scan-photo.service';
 import { ScanStore } from '../../core/scan.store';
 import { AppFooter } from '../../shared/ui/app-footer.component';

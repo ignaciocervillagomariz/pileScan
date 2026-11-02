@@ -1,7 +1,6 @@
 import { Component, computed, effect, ElementRef, inject, input, signal, viewChild } from '@angular/core';
-import { BBox } from '../../core/api/generated/models';
 import { ScanPhotoService } from '../../core/scan-photo.service';
-import { cropRect, Size } from '../../shared/bbox-geometry';
+import { BBox, cropRect, Size } from '../../shared/bbox-geometry';
 
 const THUMB_PX = 96;
 

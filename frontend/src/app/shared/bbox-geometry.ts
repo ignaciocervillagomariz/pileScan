@@ -1,4 +1,7 @@
-import { BBox } from '../core/api/generated/models';
+import { NullableBBox } from '../core/api/generated/models';
+
+/** A bounding box in pixels of the stored scan image (the non-null case of the API's NullableBBox). */
+export type BBox = NonNullable<NullableBBox>;
 
 export interface Size {
   width: number;
