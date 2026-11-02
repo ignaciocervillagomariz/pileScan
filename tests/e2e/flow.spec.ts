@@ -13,7 +13,7 @@ test('capture shows preview, upload leads to review with detections and footer',
   await uploadPhoto(page, PILE);
   expect(await total(page)).toBeGreaterThanOrEqual(1);
   await expect(page.getByTestId(ids.groupRow).first()).toBeVisible();
-  await expect(page.getByTestId(ids.disclaimer)).toBeVisible();
+  await expect(page.getByTestId(ids.disclaimer).last()).toBeVisible();
 });
 
 test('review: edit part and color, delete, add, then results', async ({ page }) => {
@@ -48,14 +48,16 @@ test('review: edit part and color, delete, add, then results', async ({ page }) 
   await page.getByTestId(ids.missingToggle).first().click();
 });
 
-test('results reflect corrections: deleting every piece gives the empty state', async ({ page }) => {
+test('deleting every piece disables ranking; the results route shows the empty state', async ({ page }) => {
   await uploadPhoto(page, PILE);
+  const scanUrl = page.url();
   for (let left = await total(page); left > 0; left = await total(page)) {
     await openEditor(page);
     await page.getByTestId(ids.deleteDetection).click();
     await expect.poll(() => total(page)).toBeLessThan(left);
   }
-  await page.getByTestId(ids.findSets).click();
+  await expect(page.getByTestId(ids.findSets)).toHaveAttribute('aria-disabled', 'true');
+  await page.goto(`${scanUrl}/results`);
   await expect(page.getByTestId(ids.resultsEmpty)).toBeVisible();
 });
 
