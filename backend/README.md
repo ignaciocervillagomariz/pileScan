@@ -57,7 +57,6 @@ into the container and use its container path.
 | `CATALOG_CACHE_DIR` | `./data/catalog` (image: `/data/catalog`) | Download cache, revalidated with ETag |
 | `CATALOG_MAX_AGE_DAYS` | `30` | A catalog older than this counts as stale |
 | `SCAN_STORAGE_DIR` | `./data/scans` (image: `/data/scans`) | Where scan images are stored |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Comma-separated origins |
 
 ## Layout
 
@@ -73,7 +72,7 @@ persistence is Spring Data JPA for the scan aggregate and `JdbcClient` for bulk 
 | `importer` | catalog import job, status, startup trigger |
 | `catalog` | read access to parts and colors |
 | `ranking` | `SetRankingStrategy`, `CoverageRankingStrategy`, `RarityWeightedRankingStrategy` (stub) |
-| `common` | problem-details error handling, CORS |
+| `common` | problem-details error handling (no CORS: same-origin behind nginx, ADR 0008) |
 
 ## Decisions
 
