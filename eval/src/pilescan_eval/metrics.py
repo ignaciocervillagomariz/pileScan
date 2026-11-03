@@ -133,8 +133,10 @@ def _inf_color(inf: dict):
     return [(d["color_candidates"][0]["name"] if d["color_candidates"] else None) for d in inf["detections"]]
 
 
-def compute(label: str, gt: dict) -> dict:
+def compute(label: str, gt: dict, only: list[str] | None = None) -> dict:
     data = load_label(label)
+    if only:
+        data["items"] = [i for i in data["items"] if i["image"] in only]
     rows = []
     for rec in data["items"]:
         name, set_name = rec["image"], rec["set"]

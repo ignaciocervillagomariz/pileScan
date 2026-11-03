@@ -24,11 +24,11 @@ def _lat(s):
     return t
 
 
-def report(labels: list[str]) -> str:
+def report(labels: list[str], only: list[str] | None = None) -> str:
     gt = load_ground_truth()
-    res = {l: compute(l, gt) for l in labels}
+    res = {l: compute(l, gt, only) for l in labels}
     for l, r in res.items():
-        (OUT_DIR / l / "metrics.json").write_text(json.dumps({"run": r["run"], "summary": r["summary"], "rows": r["rows"]}, indent=1, default=str))
+        (OUT_DIR / l / ("metrics.json" if not only else "metrics-subset.json")).write_text(json.dumps({"run": r["run"], "summary": r["summary"], "rows": r["rows"]}, indent=1, default=str))
     out: list[str] = []
     out.append("## Runs\n")
     out.append("| label | git | inference pipeline | note |\n|---|---|---|---|")

@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
 
     m = sub.add_parser("report", help="recompute metrics from saved outputs (no network)")
     m.add_argument("labels", nargs="+", help="labels under eval/out/ (several = side-by-side)")
+    m.add_argument("--only", nargs="*", help="restrict to these file names (e.g. the photos a limited run covers)")
     m.add_argument("--out", default=None, help="write markdown to this path (default: stdout)")
 
     n = sub.add_parser("annotate", help="write annotated thumbnails (<=480 px) with detection boxes")
@@ -40,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         from .report import report
 
-        md = report(a.labels)
+        md = report(a.labels, a.only)
         if a.out:
             Path(a.out).write_text(md)
             print(f"wrote {a.out}")
