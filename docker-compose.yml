@@ -51,7 +51,6 @@ services:
       CATALOG_IMPORT_ON_STARTUP: ${CATALOG_IMPORT_ON_STARTUP:-true}
       CATALOG_BASE_URL: ${CATALOG_BASE_URL:-https://cdn.rebrickable.com/media/downloads}
       SCAN_STORAGE_DIR: /data/scans
-      CORS_ALLOWED_ORIGINS: http://localhost:4200
     volumes:
       - scans:/data/scans
       - catalog-cache:/data/catalog
