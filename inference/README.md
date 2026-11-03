@@ -102,6 +102,11 @@ on failure. See [`../training/README.md`](../training/README.md).
 9. `detection_score = 0.6 * contrast + 0.4 * solidity`, times 0.8 if the region touches the
    image border.
 
+Over-segmentation is the main risk to verify against ground truth (dense photos give 76 to
+114 detections); the `detect` log line carries `median_area_fraction` (median detection area
+ over image area) and `blobs_split` to spot fragmentation. Assembled builds (a duck made of
+bricks) are one object by design.
+
 Known limits: white or light-gray pieces on a light background (low contrast), touching pieces
 that are not separable by color or shape (they stay merged), assembled models (one detection),
 and light studs on white pieces fragmenting the mask. Defaults are provisional (tuned on ~13 web

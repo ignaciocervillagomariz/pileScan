@@ -97,6 +97,7 @@ class OpenCvLabDetector:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         stats["contours"] = len(contours)
         detections: list[RawDetection] = []
+        kept_areas: list[float] = []
         max_area = p.max_area_fraction * image_area
         min_area = p.min_area_fraction * image_area
         split = 0
@@ -124,8 +125,14 @@ class OpenCvLabDetector:
                 )
                 if detection is not None:
                     detections.append(detection)
+                    kept_areas.append(part_area / image_area)
         stats["blobs_split"] = split
         stats["kept_after_filters"] = len(detections)
+        # Fragmentation indicator: a tiny median relative to the largest pieces suggests
+        # over-segmentation (see ADR 0009).
+        stats["median_area_fraction"] = (
+            round(float(np.median(kept_areas)), 5) if kept_areas else 0.0
+        )
         if capture is not None:
             capture["contours"] = np.array(len(contours))
         warnings = [] if detections else [EMPTY_WARNING]
