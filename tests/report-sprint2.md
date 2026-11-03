@@ -1,6 +1,8 @@
 # QA report, sprint 2
 
-Code under test: main at 9e8eea6 plus uncommitted work of other agents in the tree at run time (integration backend/frontend 1.1.0, vision opencv-lab-v2).
+Code under test (historical, at run time): main at 9e8eea6 plus uncommitted work of other agents in the tree at run time (integration backend/frontend 1.1.0, vision opencv-lab-v2).
+**Final re-verification:** team-lead rebuilt the default stack at the committed HEAD 81c4c35 (clean tree, all integration and vision work committed); the contract suite gave 50 passed / 1 skipped.
+
 Stack: docker compose with `tests/compose.e2e.yml` (stub classifier) for suites; default config (Brickognize) for the real-classifier checks.
 
 | Id | Suite | Result | Notes |
@@ -29,7 +31,7 @@ Total E2E: 36 passed.
 
 No bugs opened this sprint. Two observations, neither blocking:
 
-1. **Debug overlay size.** `openapi.yaml` says the debug image is "in the same pixel space as the scan image", but v2 returns it at its 1280 px working size (a 1600x1200 photo gives a 1280x960 overlay). The aspect ratio is the same, so a CSS-scaled `<img>` is fine. My test only checks aspect ratio and size not larger than the scan. Either the doc or the service should say so (owners: integration for the spec text, vision for the service).
+1. **Debug overlay size (RESOLVED in 81c4c35 by a spec change: the overlay keeps the aspect ratio and may be downscaled; it is not a coordinate reference, so the relaxed test is the specified behaviour).** `openapi.yaml` says the debug image is "in the same pixel space as the scan image", but v2 returns it at its 1280 px working size (a 1600x1200 photo gives a 1280x960 overlay). The aspect ratio is the same, so a CSS-scaled `<img>` is fine. My test only checks aspect ratio and size not larger than the scan. Either the doc or the service should say so (owners: integration for the spec text, vision for the service).
 2. **The `debug-toggle` only exists on the zero-detections card**, not on normal scans (by design per the template, so the E2E covers it there only).
 3. Playwright `page.route` does not see requests made through the service worker. The state tests use `serviceWorkers: 'block'`.
 
