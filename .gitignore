@@ -43,3 +43,5 @@ fixtures/real/*
 # debug and eval outputs (full size)
 inference/debug/
 eval/out/
+# annotated eval examples derive from third-party photos: local until image rights are confirmed
+docs/eval/img/
