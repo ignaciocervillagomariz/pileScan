@@ -3,6 +3,7 @@ package com.pilescan.ranking;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.startsWith;
@@ -33,7 +34,7 @@ class SetCandidatesIT extends AbstractIntegrationTest {
     @BeforeEach
     void createEmptyFailedScan() throws Exception {
         loadCatalog();
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).willReturn(aResponse().withStatus(503)));
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(aResponse().withStatus(503)));
         String body = mvc.perform(multipart("/api/scans")
                         .file(new MockMultipartFile("image", "a.png", "image/png", TestImages.png(30, 30))))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();

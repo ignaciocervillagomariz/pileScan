@@ -39,10 +39,11 @@ class ScanFlowIT extends AbstractIntegrationTest {
     @BeforeEach
     void catalog() {
         loadCatalog();
+        jdbc.sql("DELETE FROM unmapped_part_ids").update();
     }
 
     private void stubInference(int width, int height) {
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).willReturn(aResponse()
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json")
                 .withBody(ScanTestSupport.recognizeResponse(width, height))));
     }
@@ -99,6 +100,12 @@ class ScanFlowIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.detections[2].mappingStatus").value("UNMAPPED"))
                 .andExpect(jsonPath("$.detections[2].partCandidates[0].partNum").value(nullValue()))
                 .andExpect(jsonPath("$.detections[3].mappingStatus").value("NONE"))
+                .andExpect(jsonPath("$.detections[0].classificationStatus").value("OK"))
+                .andExpect(jsonPath("$.detections[1].classificationStatus").value(nullValue()))
+                .andExpect(jsonPath("$.detections[3].classificationStatus").value("NO_MATCH"))
+                .andExpect(jsonPath("$.inferenceTimingsMs.preprocess").value(2.0))
+                .andExpect(jsonPath("$.inferenceTimingsMs.total").value(3.0))
+                .andExpect(jsonPath("$.debugImageUrl").value(nullValue()))
                 .andExpect(jsonPath("$.summary.totalPieces").value(4))
                 .andExpect(jsonPath("$.summary.distinctParts").value(2))
                 .andExpect(jsonPath("$.summary.unidentifiedPieces").value(2))
@@ -106,7 +113,7 @@ class ScanFlowIT extends AbstractIntegrationTest {
                 .andReturn();
 
         String id = com.jayway.jsonpath.JsonPath.read(created.getResponse().getContentAsString(), "$.id");
-        WIREMOCK.verify(postRequestedFor(urlEqualTo("/v1/recognize"))
+        WIREMOCK.verify(postRequestedFor(urlPathEqualTo("/v1/recognize"))
                 .withRequestBodyPart(aMultipart().withName("image").build()));
 
         // Candidates must be stored as real JSON arrays, not as JSON-encoded strings.
@@ -127,6 +134,62 @@ class ScanFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void requestsDebugOverlayAndServesItWhenInferenceReturnsOne() throws Exception {
+        byte[] overlay = TestImages.jpeg(40, 20);
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody(ScanTestSupport.recognizeResponse(40, 20).replace("\"debug_image\": null",
+                        "\"debug_image\": \"" + java.util.Base64.getEncoder().encodeToString(overlay) + "\""))));
+        stubRebrickable();
+
+        MvcResult created = mvc.perform(multipart("/api/scans").file(image("a.jpg", TestImages.jpeg(40, 20), "image/jpeg")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.debugImageUrl", matchesPattern("/api/scans/[0-9a-f-]{36}/debug-image")))
+                .andReturn();
+        String id = com.jayway.jsonpath.JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        WIREMOCK.verify(postRequestedFor(urlPathEqualTo("/v1/recognize")).withQueryParam("debug", equalTo("true")));
+        MvcResult served = mvc.perform(get("/api/scans/{id}/debug-image", id)).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_JPEG)).andReturn();
+        assertThat(served.getResponse().getContentAsByteArray()).isEqualTo(overlay);
+    }
+
+    @Test
+    void debugImageIs404WhenInferenceReturnedNone() throws Exception {
+        stubInference(40, 20);
+        stubRebrickable();
+        MvcResult created = mvc.perform(multipart("/api/scans").file(image("a.jpg", TestImages.jpeg(40, 20), "image/jpeg")))
+                .andExpect(status().isCreated()).andReturn();
+        String id = com.jayway.jsonpath.JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        mvc.perform(get("/api/scans/{id}/debug-image", id)).andExpect(status().isNotFound());
+    }
+
+    /** Regression for the 403 on http://127.0.0.1:4200: the API must not depend on the browser origin. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "http://127.0.0.1:4200", "http://localhost:4200", "http://192.168.1.50:4200",
+            "https://my-host.tail1234.ts.net", "https://random.trycloudflare.com"})
+    void acceptsPostsWhateverTheBrowserOrigin(String origin) throws Exception {
+        stubInference(40, 20);
+        stubRebrickable();
+        mvc.perform(multipart("/api/scans").file(image("a.jpg", TestImages.jpeg(40, 20), "image/jpeg"))
+                        .header("Origin", origin).header("Host", "127.0.0.1"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void acceptsPostsThroughProxyWithForwardedHeaders() throws Exception {
+        stubInference(40, 20);
+        stubRebrickable();
+        mvc.perform(multipart("/api/scans").file(image("a.jpg", TestImages.jpeg(40, 20), "image/jpeg"))
+                        .header("Origin", "https://my-host.tail1234.ts.net")
+                        .header("Host", "my-host.tail1234.ts.net")
+                        .header("X-Forwarded-Proto", "https").header("X-Forwarded-Host", "my-host.tail1234.ts.net")
+                        .header("X-Forwarded-Port", "443"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void exifRotatedPhotoIsStoredUprightAndSentUprightToInference() throws Exception {
         stubInference(20, 40);
         stubRebrickable();
@@ -144,7 +207,7 @@ class ScanFlowIT extends AbstractIntegrationTest {
         assertThat(storedImage.getWidth()).isEqualTo(20);
         assertThat(storedImage.getHeight()).isEqualTo(40);
 
-        var sent = WIREMOCK.findAll(postRequestedFor(urlEqualTo("/v1/recognize"))).getFirst()
+        var sent = WIREMOCK.findAll(postRequestedFor(urlPathEqualTo("/v1/recognize"))).getFirst()
                 .getPart("image").getBody().asBytes();
         BufferedImage sentImage = ImageIO.read(new ByteArrayInputStream(sent));
         assertThat(sentImage.getWidth()).isEqualTo(20);
@@ -153,7 +216,7 @@ class ScanFlowIT extends AbstractIntegrationTest {
 
     @Test
     void inferenceFailureYieldsFailedScanWithStatus201() throws Exception {
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).willReturn(aResponse().withStatus(503)
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(aResponse().withStatus(503)
                 .withHeader("Content-Type", "application/json").withBody("{\"detail\":\"detector down\"}")));
 
         mvc.perform(multipart("/api/scans").file(image("a.png", TestImages.png(30, 30), "image/png")))
@@ -167,7 +230,7 @@ class ScanFlowIT extends AbstractIntegrationTest {
 
     @Test
     void unreachableInferenceAlsoYieldsFailedScan() throws Exception {
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).willReturn(
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(
                 aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
 
         mvc.perform(multipart("/api/scans").file(image("a.png", TestImages.png(30, 30), "image/png")))
@@ -177,10 +240,10 @@ class ScanFlowIT extends AbstractIntegrationTest {
 
     @Test
     void transientConnectionFailureIsRetriedOnce() throws Exception {
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("Started")
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("Started")
                 .willReturn(aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER))
                 .willSetStateTo("recovered"));
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("recovered")
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).inScenario("flaky").whenScenarioStateIs("recovered")
                 .willReturn(aResponse().withHeader("Content-Type", "application/json")
                         .withBody(ScanTestSupport.recognizeResponse(30, 30))));
         stubRebrickable();

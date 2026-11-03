@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -45,6 +46,12 @@ class ScanEntity {
     @Column(columnDefinition = "jsonb")
     private List<String> warnings = new ArrayList<>();
 
+    private String debugImageFile;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Double> inferenceTimingsMs;
+
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "scan_id", insertable = false, updatable = false)
     @OrderBy("seq")
@@ -64,8 +71,11 @@ class ScanEntity {
         this.imageHeight = imageHeight;
     }
 
-    void complete(String pipeline, List<String> warnings) {
+    void complete(String pipeline, List<String> warnings, Map<String, Double> inferenceTimingsMs,
+                  String debugImageFile) {
         this.status = ScanStatus.COMPLETED;
+        this.inferenceTimingsMs = inferenceTimingsMs;
+        this.debugImageFile = debugImageFile;
         this.pipeline = pipeline;
         this.warnings = new ArrayList<>(warnings);
     }
@@ -109,6 +119,14 @@ class ScanEntity {
 
     String getErrorMessage() {
         return errorMessage;
+    }
+
+    String getDebugImageFile() {
+        return debugImageFile;
+    }
+
+    Map<String, Double> getInferenceTimingsMs() {
+        return inferenceTimingsMs;
     }
 
     List<String> getWarnings() {

@@ -32,6 +32,18 @@ class ScanImageStore {
         }
     }
 
+    /** Stores the inference debug overlay (JPEG) next to the scan image. */
+    String saveDebug(UUID scanId, byte[] jpeg) {
+        String name = scanId + ".debug.jpg";
+        try {
+            Files.createDirectories(dir);
+            Files.write(dir.resolve(name), jpeg);
+            return name;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not store debug image", e);
+        }
+    }
+
     Resource resource(String name) {
         return new FileSystemResource(dir.resolve(name));
     }

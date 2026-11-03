@@ -36,7 +36,8 @@ public class DetectionAssembler {
                 .map(r -> new Detection(r.id(), r.bbox(), r.source(), r.corrected(), r.confidence(),
                         r.partNum() == null ? null : parts.get(r.partNum()),
                         r.colorId() == null ? null : colors.get(r.colorId()),
-                        r.partCandidates(), r.colorCandidates(), r.measuredRgb(), r.mappingStatus()))
+                        r.partCandidates(), r.colorCandidates(), r.measuredRgb(), r.mappingStatus(),
+                        r.classificationStatus()))
                 .toList();
     }
 

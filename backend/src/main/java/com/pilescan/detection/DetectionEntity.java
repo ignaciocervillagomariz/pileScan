@@ -67,6 +67,9 @@ public class DetectionEntity {
     @Column(columnDefinition = "jsonb")
     private List<ColorCandidate> colorCandidates;
 
+    @Enumerated(EnumType.STRING)
+    private ClassificationStatus classificationStatus;
+
     private OffsetDateTime createdAt;
 
     protected DetectionEntity() {
@@ -92,13 +95,14 @@ public class DetectionEntity {
         e.partCandidates = r.partCandidates();
         e.colorCandidates = r.colorCandidates();
         e.createdAt = r.createdAt();
+        e.classificationStatus = r.classificationStatus();
         return e;
     }
 
     public DetectionRecord toRecord() {
         BBox bbox = bboxX == null ? null : new BBox(bboxX, bboxY, bboxWidth, bboxHeight);
         return new DetectionRecord(id, scanId, source, corrected, confidence, bbox, partNum, colorId, measuredRgb,
-                mappingStatus, partCandidates, colorCandidates, createdAt);
+                mappingStatus, partCandidates, colorCandidates, createdAt, classificationStatus);
     }
 
     /** A user correction wins over the classifier, so confidence becomes 1.0. */

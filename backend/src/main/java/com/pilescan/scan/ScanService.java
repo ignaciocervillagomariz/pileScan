@@ -72,9 +72,11 @@ public class ScanService {
                         .formatted(response.image().width(), response.image().height(), image.width(), image.height()));
             }
             List<String> finalWarnings = warnings;
+            String debugFile = storeDebugImage(id, response.debugImage());
             tx.executeWithoutResult(status -> {
                 mapped.detections().forEach(detections::insert);
-                scans.getReferenceById(id).complete(response.pipeline().label(), finalWarnings);
+                scans.getReferenceById(id).complete(response.pipeline().label(), finalWarnings,
+                        response.timingsMs(), debugFile);
             });
         } catch (InferenceException e) {
             log.warn("Inference failed for scan {}: {}", id, e.getMessage());
@@ -82,6 +84,19 @@ public class ScanService {
         } catch (RuntimeException e) {
             log.error("Processing failed for scan {}", id, e);
             fail(id, "Processing the recognition result failed: " + e.getMessage());
+        }
+    }
+
+    /** The overlay is a nicety: a broken one must never fail the scan. */
+    private String storeDebugImage(UUID id, String base64) {
+        if (base64 == null || base64.isBlank()) {
+            return null;
+        }
+        try {
+            return imageStore.saveDebug(id, java.util.Base64.getMimeDecoder().decode(base64));
+        } catch (RuntimeException e) {
+            log.warn("Ignoring unusable debug image for scan {}: {}", id, e.getMessage());
+            return null;
         }
     }
 
@@ -100,11 +115,22 @@ public class ScanService {
                 scan.getDetections().stream().map(DetectionEntity::toRecord).toList());
         return new Scan(scan.getId(), scan.getStatus(), scan.getCreatedAt(),
                 new Scan.Image("/api/scans/" + id + "/image", scan.getImageWidth(), scan.getImageHeight()),
-                active, ScanSummary.of(active), scan.getWarnings(), scan.getErrorMessage(), scan.getPipeline());
+                active, ScanSummary.of(active), scan.getWarnings(), scan.getErrorMessage(), scan.getPipeline(),
+                scan.getDebugImageFile() == null ? null : "/api/scans/" + id + "/debug-image",
+                scan.getInferenceTimingsMs());
     }
 
     /** Stored image as a resource together with its content type. */
     public record StoredImage(Resource resource, String contentType) { }
+
+    public StoredImage debugImage(UUID id) {
+        ScanEntity scan = scans.findById(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));
+        Resource resource = scan.getDebugImageFile() == null ? null : imageStore.resource(scan.getDebugImageFile());
+        if (resource == null || !resource.exists()) {
+            throw ApiException.notFound("Scan " + id + " has no debug image.");
+        }
+        return new StoredImage(resource, "image/jpeg");
+    }
 
     public StoredImage image(UUID id) {
         ScanEntity scan = scans.findById(id).orElseThrow(() -> ApiException.notFound("Scan " + id + " not found."));

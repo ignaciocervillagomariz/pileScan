@@ -51,6 +51,16 @@ class ScanController {
         return service.get(scanId);
     }
 
+    @Operation(operationId = "getScanDebugImage", summary = "Get the inference debug overlay of a scan.")
+    @GetMapping("/{scanId}/debug-image")
+    ResponseEntity<Resource> debugImage(@PathVariable UUID scanId) {
+        ScanService.StoredImage image = service.debugImage(scanId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate().immutable())
+                .body(image.resource());
+    }
+
     @Operation(operationId = "getScanImage", summary = "Get the stored (orientation-corrected) scan image.")
     @GetMapping("/{scanId}/image")
     ResponseEntity<Resource> image(@PathVariable UUID scanId) {

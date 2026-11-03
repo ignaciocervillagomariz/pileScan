@@ -38,7 +38,7 @@ public class DetectionService {
         requireValidColor(request.colorId());
         DetectionRecord record = new DetectionRecord(UUID.randomUUID(), scanId, DetectionSource.MANUAL, false, 1.0,
                 request.bbox(), request.partNum(), request.colorId(), null, MappingStatus.MAPPED,
-                List.of(), List.of(), OffsetDateTime.now(clock));
+                List.of(), List.of(), OffsetDateTime.now(clock), null);
         repository.insert(record);
         return assembler.assemble(record);
     }

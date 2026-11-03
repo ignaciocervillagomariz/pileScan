@@ -20,7 +20,7 @@ class ScanSummaryTest {
 
     private static Detection detection(PartRef part, ColorRef color) {
         return new Detection(UUID.randomUUID(), null, DetectionSource.DETECTED, false, 0.5, part, color,
-                List.of(), List.of(), null, part == null ? MappingStatus.UNMAPPED : MappingStatus.MAPPED);
+                List.of(), List.of(), null, part == null ? MappingStatus.UNMAPPED : MappingStatus.MAPPED, null);
     }
 
     @Test

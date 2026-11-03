@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -33,6 +34,7 @@ public class InferenceClient {
     private final RestClient client;
     private final JsonMapper snakeCase = JsonMapper.builder()
             .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
     InferenceClient(InferenceProperties props) {
@@ -84,7 +86,7 @@ public class InferenceClient {
     private String post(MultiValueMap<String, Object> body) {
         for (int attempt = 1; ; attempt++) {
             try {
-                return client.post().uri("/v1/recognize")
+                return client.post().uri("/v1/recognize?debug=true")
                         .contentType(MediaType.MULTIPART_FORM_DATA)
                         .body(body)
                         .retrieve()

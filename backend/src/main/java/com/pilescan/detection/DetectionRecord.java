@@ -18,5 +18,6 @@ public record DetectionRecord(
         MappingStatus mappingStatus,
         List<PartCandidate> partCandidates,
         List<ColorCandidate> colorCandidates,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        ClassificationStatus classificationStatus) {
 }

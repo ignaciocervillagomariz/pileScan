@@ -3,6 +3,7 @@ package com.pilescan.detection;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -38,7 +39,7 @@ class DetectionCorrectionIT extends AbstractIntegrationTest {
     @BeforeEach
     void createScan() throws Exception {
         loadCatalog();
-        WIREMOCK.stubFor(post(urlEqualTo("/v1/recognize")).willReturn(aResponse()
+        WIREMOCK.stubFor(post(urlPathEqualTo("/v1/recognize")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json").withBody(ONE_DETECTION)));
         String body = mvc.perform(multipart("/api/scans")
                         .file(new MockMultipartFile("image", "a.png", "image/png", TestImages.png(30, 30))))

@@ -1,17 +1,21 @@
 package com.pilescan.inference;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The subset of the inference contract (docs/api/inference-response.schema.json, v1.x) the backend
- * consumes. Field names are snake_case on the wire; {@link InferenceClient} maps them.
+ * consumes. Field names are snake_case on the wire; {@link InferenceClient} maps them. Unknown
+ * fields are ignored, so additive contract changes (minor versions) never break the backend.
  */
 public record RecognizeResponse(
         String contractVersion,
         ImageSize image,
         List<DetectionResult> detections,
         Pipeline pipeline,
-        List<String> warnings) {
+        Map<String, Double> timingsMs,
+        List<String> warnings,
+        String debugImage) {
 
     public record ImageSize(int width, int height) { }
 
@@ -42,5 +46,7 @@ public record RecognizeResponse(
             double detectionScore,
             List<PartCandidate> partCandidates,
             List<ColorCandidate> colorCandidates,
-            Rgb measuredRgb) { }
+            Rgb measuredRgb,
+            String classificationStatus,
+            String classificationError) { }
 }

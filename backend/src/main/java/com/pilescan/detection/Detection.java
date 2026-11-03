@@ -17,5 +17,6 @@ public record Detection(
         List<PartCandidate> partCandidates,
         List<ColorCandidate> colorCandidates,
         String measuredRgb,
-        MappingStatus mappingStatus) {
+        MappingStatus mappingStatus,
+        ClassificationStatus classificationStatus) {
 }

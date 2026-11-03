@@ -3,6 +3,7 @@ package com.pilescan.scan;
 import com.pilescan.catalog.CatalogRepository;
 import com.pilescan.catalog.ColorRef;
 import com.pilescan.detection.BBox;
+import com.pilescan.detection.ClassificationStatus;
 import com.pilescan.detection.ColorCandidate;
 import com.pilescan.detection.DetectionRecord;
 import com.pilescan.detection.DetectionSource;
@@ -96,7 +97,8 @@ class RecognitionMapper {
         BBox bbox = new BBox(d.bbox().x(), d.bbox().y(), d.bbox().width(), d.bbox().height());
         return new DetectionRecord(UUID.randomUUID(), scanId, DetectionSource.DETECTED, false, confidence, bbox,
                 chosen == null ? null : chosen.partNum(), topColor == null ? null : topColor.color().id(),
-                d.measuredRgb() == null ? null : d.measuredRgb().hex(), status, partCandidates, colorCandidates, now);
+                d.measuredRgb() == null ? null : d.measuredRgb().hex(), status, partCandidates, colorCandidates, now,
+                ClassificationStatus.fromInference(d.classificationStatus()));
     }
 
     static double confidence(double detectionScore, Double partScore, Double colorScore) {

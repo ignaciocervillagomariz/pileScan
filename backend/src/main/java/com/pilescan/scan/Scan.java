@@ -3,6 +3,7 @@ package com.pilescan.scan;
 import com.pilescan.detection.Detection;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** API representation of a scan with its active detections. */
@@ -15,7 +16,9 @@ public record Scan(
         ScanSummary summary,
         List<String> warnings,
         String errorMessage,
-        String pipeline) {
+        String pipeline,
+        String debugImageUrl,
+        Map<String, Double> inferenceTimingsMs) {
 
     public record Image(String url, int width, int height) { }
 }
