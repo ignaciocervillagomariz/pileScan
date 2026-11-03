@@ -58,6 +58,10 @@ Without `--bg` the command runs in the foreground and stops with Ctrl+C. Open th
 the phone. `tailscale serve` is HTTPS on port 443 by default and forwards plain HTTP to the
 target; the backend sees `X-Forwarded-Proto: https` through nginx, so generated URLs are
 correct. Syntax: [`tailscale serve` reference](https://tailscale.com/kb/1242/tailscale-serve).
+**Not verified (no tailnet available when this was written):** whether `tailscale serve` sets
+`X-Forwarded-Proto`; the Tailscale docs do not state it. The API only returns relative URLs
+(`Location: /api/scans/{id}`), so a missing header is harmless; simulating the header with curl
+gives the same 201 and relative `Location`. Check `docker compose logs frontend` if in doubt.
 Do not use `tailscale funnel`: that publishes to the public internet.
 
 ## Option C: HTTPS with a cloudflared quick tunnel (public, last resort)
@@ -72,7 +76,7 @@ the admin endpoints. Quick tunnels are documented as being for testing and devel
 ([Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)).
 Do not share the URL, do not leave it running, stop it with Ctrl+C when done. `--allowed-mail
 you@example.com` (same page) asks visitors for an emailed one-time PIN first, which is worth
-using. Prefer Option B.
+using; it needs an interactive browser session, so it does not suit scripted clients. Prefer Option B.
 
 ## Checklist before a photo session
 - [ ] `docker compose ps`: all services healthy; the catalog import has finished
