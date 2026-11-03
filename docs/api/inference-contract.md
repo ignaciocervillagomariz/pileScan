@@ -1,4 +1,8 @@
-# Inference service contract (v1.0.0)
+# Inference service contract (v1.1.0)
+
+> **1.1.0 (2026-11-03, additive):** adds per-detection `classification_status` (required) and
+> `classification_error`, an optional `timings_ms.preprocess`, and AVIF/HEIC input. Consumers
+> must ignore unknown fields.
 
 Owner: team-lead. Implemented by `vision` in `/inference`, consumed by `backend`.
 The machine-readable response schema is in [`inference-response.schema.json`](inference-response.schema.json)
@@ -19,7 +23,7 @@ Detects every piece in a photo, then classifies its part and color.
 
 | Field | In | Type | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `image` | form | file (JPEG, PNG or WebP) | yes | ≤ 15 MB. EXIF orientation is applied before processing. |
+| `image` | form | file (JPEG, PNG, WebP, AVIF or HEIC) | yes | ≤ 15 MB. EXIF orientation is applied before processing. |
 | `debug` | query | bool | no, default `false` | When true, `debug_image` holds a base64 JPEG with boxes drawn. |
 | `max_detections` | query | int 1..300 | no, default `150` | Keeps the N largest/most confident regions; adds a warning if truncated. |
 
@@ -27,7 +31,7 @@ Detects every piece in a photo, then classifies its part and color.
 
 ```json
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "image": { "width": 3024, "height": 4032 },
   "detections": [
     {
@@ -44,11 +48,13 @@ Detects every piece in a photo, then classifies its part and color.
         { "rebrickable_color_id": 320, "name": "Dark Red", "score": 0.12, "delta_e": 11.7 },
         { "rebrickable_color_id": 25, "name": "Orange", "score": 0.07, "delta_e": 18.4 }
       ],
-      "measured_rgb": { "r": 196, "g": 32, "b": 27 }
+      "measured_rgb": { "r": 196, "g": 32, "b": 27 },
+      "classification_status": "ok",
+      "classification_error": null
     }
   ],
   "pipeline": { "detector": "opencv-lab-v1", "part_classifier": "brickognize-v1", "color_estimator": "kmeans-lab-ciede2000-v1" },
-  "timings_ms": { "detect": 140.2, "classify": 5210.7, "color": 88.1, "total": 5460.0 },
+  "timings_ms": { "preprocess": 35.0, "detect": 140.2, "classify": 5210.7, "color": 88.1, "total": 5460.0 },
   "warnings": [],
   "debug_image": null
 }
@@ -59,18 +65,23 @@ Detects every piece in a photo, then classifies its part and color.
 - `413` image too large
 - `422` invalid query parameters
 - `503` returned **only** if the detector itself cannot run. A classifier outage is
-  **not** an error: affected detections get `part_candidates: []` plus a warning, so the
-  user can still correct them by hand.
+  **not** an error. Affected detections are kept with `part_candidates: []`,
+  `classification_status: "error"` and a warning, so the user can still correct them by
+  hand. **A classifier failure must never remove a detection.**
 
 ## Semantics
 
 - `bbox` is in pixels of the orientation-corrected input image, the same pixel space as the
-  image the backend stores and serves to the frontend. The backend must store the
+  image the backend stores and serves to the frontend. The detector may internally resize
+  (for example to a 1280 px long side), but it must scale boxes back to the input pixel space. The backend must store the
   orientation-corrected image, or apply the same EXIF transpose.
 - `part_candidates`: at most 3, sorted by score descending. `id_system` says which namespace
   `part_id` belongs to. Brickognize returns BrickLink-style IDs (`"bricklink"`). The vision dev
   verifies this against https://api.brickognize.com/docs. The backend maps them to Rebrickable
   `part_num` via `part_id_mapping`.
+- `classification_status`: `ok` (candidates returned), `no_match` (the classifier answered
+  with no items), `error` (failed after retries; `classification_error` holds a short reason)
+  or `skipped` (not attempted, e.g. crop too small).
 - `color_candidates`: 1–3 entries sorted by score descending. Rebrickable color IDs, solid colors
   only for v1. `score` is a softmax-like normalization of `-delta_e` and comes with no
   calibration guarantee.
