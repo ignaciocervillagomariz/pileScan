@@ -10,6 +10,11 @@ import { NullablePartRef } from '../models/nullable-part-ref';
 import { PartCandidate } from '../models/part-candidate';
 export interface Detection {
   bbox?: NullableBBox | null;
+
+  /**
+   * Outcome of part classification for detected pieces (from inference). Null for MANUAL pieces.
+   */
+  classificationStatus?: 'OK' | 'NO_MATCH' | 'ERROR' | 'SKIPPED' | null;
   color?: NullableColorRef | null;
   colorCandidates: Array<ColorCandidate>;
 

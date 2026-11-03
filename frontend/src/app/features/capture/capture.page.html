@@ -18,6 +18,10 @@
       <div class="banner error" role="alert" data-testid="capture-error">{{ message }}</div>
     }
 
+    @if (prepNote(); as note) {
+      <div class="banner warning" role="status" data-testid="capture-note">{{ note }}</div>
+    }
+
     @if (selected(); as photo) {
       <section class="card preview" aria-label="Selected photo">
         <img [src]="photo.previewUrl" alt="Preview of the photo you selected" data-testid="photo-preview" />
@@ -90,8 +94,13 @@
     <div class="overlay" role="status" aria-live="polite" data-testid="upload-loading">
       <div class="overlay-box">
         <ion-spinner name="crescent" aria-hidden="true" />
-        <p><strong>Analyzing your pile...</strong></p>
-        <p>This can take up to a minute for big piles. Please keep this page open.</p>
+        <p data-testid="upload-stage">
+          <strong>{{ stage() === 'preparing' ? 'Preparing your photo...' : 'Analyzing your pile...' }}</strong>
+        </p>
+        <p>
+          This can take 10 to 30 seconds, longer for big piles. Please keep this page open.
+          <span data-testid="upload-elapsed">{{ elapsedSeconds() }} s</span>
+        </p>
       </div>
     </div>
   }

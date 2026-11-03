@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { IonContent, IonHeader, IonSpinner, IonTitle, IonToolbar } from '@ionic/angular';
 import { ScanStore } from '../../core/scan.store';
 import { checkImageFile, prepareForUpload } from '../../shared/image-prep';
+import { PHOTO_TIPS } from '../../shared/photo-tips';
 import { AppFooter } from '../../shared/ui/app-footer.component';
 import { PhotoSourceService } from './photo-source.service';
 
@@ -29,14 +30,16 @@ export class CapturePage implements OnDestroy {
     () => this.localError() ?? this.store.error()?.message ?? null,
   );
 
-  protected readonly tips = [
-    'Use a plain, contrasting background (a white sheet works well).',
-    'Spread pieces out so none overlap or touch.',
-    'Shoot straight down from above, with the whole pile in frame.',
-    'Use even, bright light and avoid hard shadows.',
-  ];
+  protected readonly tips = PHOTO_TIPS;
+
+  /** What the loading overlay says: resizing happens on the phone, analysis on the server. */
+  protected readonly stage = signal<'preparing' | 'analyzing'>('preparing');
+  protected readonly elapsedSeconds = signal(0);
+  protected readonly prepNote = signal<string | null>(null);
+  private timer: ReturnType<typeof setInterval> | null = null;
 
   ngOnDestroy(): void {
+    this.stopTimer();
     this.revokePreview();
   }
 
@@ -63,13 +66,33 @@ export class CapturePage implements OnDestroy {
     }
     this.uploading.set(true);
     this.localError.set(null);
+    this.prepNote.set(null);
+    this.stage.set('preparing');
+    this.startTimer();
     try {
-      const id = await this.store.upload(await prepareForUpload(selected.file));
+      const prepared = await prepareForUpload(selected.file);
+      this.prepNote.set(prepared.note);
+      this.stage.set('analyzing');
+      const id = await this.store.upload(prepared.file);
       if (id) {
         await this.router.navigate(['/scan', id]);
       }
     } finally {
+      this.stopTimer();
       this.uploading.set(false);
+    }
+  }
+
+  private startTimer(): void {
+    this.stopTimer();
+    this.elapsedSeconds.set(0);
+    this.timer = setInterval(() => this.elapsedSeconds.update((s) => s + 1), 1000);
+  }
+
+  private stopTimer(): void {
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+      this.timer = null;
     }
   }
 
@@ -89,6 +112,7 @@ export class CapturePage implements OnDestroy {
     }
     this.revokePreview();
     this.localError.set(null);
+    this.prepNote.set(null);
     this.selected.set({ file, previewUrl: URL.createObjectURL(file) });
   }
 

@@ -33,6 +33,13 @@
         <div class="banner warning" data-testid="scan-warning">{{ warning }}</div>
       }
 
+      @if (unclassified() > 0) {
+        <div class="banner warning" data-testid="classification-warning">
+          Part recognition failed for {{ unclassified() }} {{ unclassified() === 1 ? 'piece' : 'pieces' }}.
+          Tap the box and pick the part by hand.
+        </div>
+      }
+
       @if (store.error(); as error) {
         <div class="banner error" role="alert" data-testid="review-action-error">{{ error.message }}</div>
       }
@@ -49,6 +56,41 @@
           }
         </p>
       </section>
+
+      @if (noDetections()) {
+        <section class="card zero" aria-labelledby="zero-heading" data-testid="zero-detections">
+          <h2 id="zero-heading">No pieces were detected</h2>
+          <p>Try again with a photo like this:</p>
+          <ul data-testid="zero-detections-tips">
+            @for (tip of tips; track tip) {
+              <li>{{ tip }}</li>
+            }
+          </ul>
+          <p>You can also add pieces by hand below.</p>
+          <div class="row">
+            <a class="btn primary" data-testid="zero-detections-retry" routerLink="/">Try another photo</a>
+            @if (current.debugImageUrl) {
+              <button
+                type="button"
+                class="btn"
+                data-testid="debug-toggle"
+                [attr.aria-pressed]="showDebug()"
+                (click)="showDebug.set(!showDebug())"
+              >
+                {{ showDebug() ? 'Hide debug view' : 'Show debug view' }}
+              </button>
+            }
+          </div>
+          @if (showDebug() && current.debugImageUrl) {
+            <img
+              class="debug"
+              [src]="current.debugImageUrl"
+              alt="Debug view: the regions the detector looked at, drawn on your photo"
+              data-testid="debug-image"
+            />
+          }
+        </section>
+      }
 
       @if (imageSize(); as size) {
         <section aria-label="Photo with detected pieces">

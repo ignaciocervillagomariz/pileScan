@@ -6,6 +6,10 @@ import { Capacitor } from '@capacitor/core';
  * Where photos come from. Inside a native shell (Capacitor) the Camera plugin is used. In a
  * browser the page falls back to <input type="file">: on phones `capture` opens the camera app
  * directly, on desktop it opens the file picker.
+ *
+ * No browser camera API (getUserMedia, Capacitor's web camera UI) is ever used, so capture works
+ * on a plain-HTTP origin such as a LAN IP, where `window.isSecureContext` is false. HTTPS is still
+ * recommended for the service worker (PWA install), see docs/phone-testing.md.
  */
 @Injectable({ providedIn: 'root' })
 export class PhotoSourceService {

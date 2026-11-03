@@ -12,6 +12,7 @@ import {
 import { BBox } from '../../shared/bbox-geometry';
 import { ScanPhotoService } from '../../core/scan-photo.service';
 import { ScanStore } from '../../core/scan.store';
+import { PHOTO_TIPS } from '../../shared/photo-tips';
 import { AppFooter } from '../../shared/ui/app-footer.component';
 import { BboxCanvas } from './bbox-canvas.component';
 import { DetectionEditor, EditorSave } from './detection-editor.component';
@@ -49,6 +50,8 @@ export class ReviewPage {
   protected readonly drawing = signal(false);
   protected readonly highlightedIds = signal<string[]>([]);
   protected readonly editor = signal<EditorState | null>(null);
+  protected readonly showDebug = signal(false);
+  protected readonly tips = PHOTO_TIPS;
 
   protected readonly scan = this.store.scan;
   protected readonly summary = this.store.summary;
@@ -62,6 +65,18 @@ export class ReviewPage {
   });
   protected readonly identifiedPieces = computed(
     () => this.summary().totalPieces - this.summary().unidentifiedPieces,
+  );
+
+  /** Detected pieces whose part could not be classified (service error or skipped). */
+  protected readonly unclassified = computed(
+    () =>
+      this.store
+        .detections()
+        .filter((d) => d.classificationStatus === 'ERROR' || d.classificationStatus === 'SKIPPED').length,
+  );
+  /** Zero active pieces on a scan that ran: the user needs advice, not an empty list. */
+  protected readonly noDetections = computed(
+    () => this.scan()?.status === 'COMPLETED' && this.store.detections().length === 0,
   );
 
   constructor() {
@@ -135,6 +150,7 @@ export class ReviewPage {
 
   private async open(id: string): Promise<void> {
     this.loaded.set(false);
+    this.showDebug.set(false);
     await this.store.load(id);
     this.loaded.set(true);
   }

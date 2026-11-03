@@ -11,6 +11,8 @@ export type { GetScanImage$Png$Params as GetScanImage$Png$Params } from './fn/sc
 export { getScanImage$Png as getScanImage$Png } from './fn/scans/get-scan-image-png';
 export type { GetScanImage$Webp$Params as GetScanImage$Webp$Params } from './fn/scans/get-scan-image-webp';
 export { getScanImage$Webp as getScanImage$Webp } from './fn/scans/get-scan-image-webp';
+export type { GetScanDebugImage$Params as GetScanDebugImage$Params } from './fn/scans/get-scan-debug-image';
+export { getScanDebugImage as getScanDebugImage } from './fn/scans/get-scan-debug-image';
 export type { ListDetections$Params as ListDetections$Params } from './fn/detections/list-detections';
 export { listDetections as listDetections } from './fn/detections/list-detections';
 export type { AddDetection$Params as AddDetection$Params } from './fn/detections/add-detection';

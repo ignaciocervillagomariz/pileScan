@@ -7,10 +7,22 @@ import { ScanStatus } from '../models/scan-status';
 import { ScanSummary } from '../models/scan-summary';
 export interface Scan {
   createdAt: string;
+
+  /**
+   * Relative URL of the inference debug overlay, e.g. /api/scans/{id}/debug-image. Null if inference failed or produced none.
+   */
+  debugImageUrl?: string | null;
   detections: Array<Detection>;
   errorMessage?: string | null;
   id: string;
   image: ScanImage;
+
+  /**
+   * Per-stage inference timings in ms, as reported by the inference service (keys such as preprocess, detect, classify, color, total).
+   */
+  inferenceTimingsMs?: ({
+[key: string]: number;
+}) | null;
 
   /**
    * Inference pipeline that produced the detections, e.g. "opencv-lab-v1/brickognize-v1/kmeans-lab-ciede2000-v1".

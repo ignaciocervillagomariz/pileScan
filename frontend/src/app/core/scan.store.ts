@@ -7,7 +7,7 @@ import { createScan } from './api/generated/fn/scans/create-scan';
 import { getScan } from './api/generated/fn/scans/get-scan';
 import { Detection, DetectionUpdate, Scan } from './api/generated/models';
 import { BBox } from '../shared/bbox-geometry';
-import { AppError, toAppError } from './api-error';
+import { AppError, ErrorContext, toAppError } from './api-error';
 import { buildSummary } from '../shared/grouping';
 
 /**
@@ -44,7 +44,7 @@ export class ScanStore {
 
   /** Uploads a photo. Resolves with the scan id, or null if the upload failed (see `error`). */
   async upload(image: Blob): Promise<string | null> {
-    const scan = await this.run(() => this.api.invoke(createScan, { body: { image } }));
+    const scan = await this.run(() => this.api.invoke(createScan, { body: { image } }), 'upload');
     if (!scan) {
       return null;
     }
@@ -121,13 +121,13 @@ export class ScanStore {
     return scan.id;
   }
 
-  private async run<T>(work: () => Promise<T>): Promise<T | null> {
+  private async run<T>(work: () => Promise<T>, context: ErrorContext = 'default'): Promise<T | null> {
     this._loading.set(true);
     this._error.set(null);
     try {
       return await work();
     } catch (error) {
-      this._error.set(toAppError(error));
+      this._error.set(toAppError(error, context));
       return null;
     } finally {
       this._loading.set(false);
