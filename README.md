@@ -88,10 +88,36 @@ tuning variables:
 **Photo tips:** use a plain background that contrasts with the pieces, keep pieces from
 touching or overlapping, shoot straight down, and use even light.
 
+## Testing on a phone
+
+The camera needs a **secure context** (HTTPS or localhost), so a plain `http://<LAN IP>:4200`
+falls back to the file picker. [docs/phone-testing.md](docs/phone-testing.md) covers:
+- LAN testing with `BIND_ADDRESS=0.0.0.0` (trusted networks only; the API has no auth)
+- HTTPS through `tailscale serve` (preferred, private to your tailnet)
+- a Cloudflare quick tunnel (public, short tests only)
+
+The app works behind any host or scheme because the browser only talks to nginx (same
+origin). See [ADR 0008](docs/decisions/0008-same-origin-api-behind-nginx.md).
+
+## Evaluating on real photos
+
+1. Put photos in `fixtures/real/` (git-ignored). Fill `fixtures/real/counts.csv` (required)
+   and optionally `ground-truth.csv` (parts and colors) and `sets.csv` (complete known sets).
+   [fixtures/real/README.md](fixtures/real/README.md) has the conventions.
+2. Start the stack, then run the harness:
+   ```bash
+   cd eval && uv sync
+   uv run pilescan-eval run --label my-run --inference-url http://localhost:8000 --api-url http://localhost:4200
+   uv run pilescan-eval report my-run
+   ```
+   Metrics are recomputed from cached raw outputs, so editing the CSVs needs no re-run.
+3. Results and method: [docs/eval/baseline.md](docs/eval/baseline.md). Harness details:
+   [eval/README.md](eval/README.md).
+
 ## Development
 
 Each service has its own README with local run and test commands:
-[frontend](frontend/README.md) · [backend](backend/README.md) · [inference](inference/README.md) · [tests](tests/README.md).
+[frontend](frontend/README.md) · [backend](backend/README.md) · [inference](inference/README.md) · [tests](tests/README.md) · [eval](eval/README.md).
 
 Conventions (folder ownership, Conventional Commits, contract-first workflow) are in
 [CLAUDE.md](CLAUDE.md).
