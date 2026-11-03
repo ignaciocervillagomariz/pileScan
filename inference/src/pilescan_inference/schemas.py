@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
 
 
 class _Strict(BaseModel):
@@ -47,6 +47,9 @@ class ColorCandidate(_Strict):
     delta_e: float = Field(ge=0)
 
 
+ClassificationStatus = Literal["ok", "no_match", "error", "skipped"]
+
+
 class Detection(_Strict):
     index: int = Field(ge=0)
     bbox: BBox
@@ -54,6 +57,8 @@ class Detection(_Strict):
     part_candidates: list[PartCandidate] = Field(max_length=3)
     color_candidates: list[ColorCandidate] = Field(min_length=1, max_length=3)
     measured_rgb: RGB
+    classification_status: ClassificationStatus
+    classification_error: str | None = None
 
 
 class PipelineInfo(_Strict):
@@ -67,10 +72,11 @@ class Timings(_Strict):
     classify: float = Field(ge=0)
     color: float = Field(ge=0)
     total: float = Field(ge=0)
+    preprocess: float | None = Field(default=None, ge=0)
 
 
 class RecognizeResponse(_Strict):
-    contract_version: Literal["1.0.0"]
+    contract_version: Literal["1.1.0"]
     image: ImageSize
     detections: list[Detection]
     pipeline: PipelineInfo

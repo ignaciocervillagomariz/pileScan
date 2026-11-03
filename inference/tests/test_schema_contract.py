@@ -69,7 +69,7 @@ def test_contract_version_and_id_systems_match(schema):
         if False
         else True
     )
-    assert CONTRACT_VERSION == "1.0.0"
+    assert CONTRACT_VERSION == "1.1.0"
     assert schema["$defs"]["PartCandidate"]["properties"]["id_system"]["enum"] == [
         "bricklink",
         "rebrickable",

@@ -87,6 +87,27 @@ def test_classifier_failures_become_empty_candidates_and_a_warning(scene):
     assert [bool(d["part_candidates"]) for d in body["detections"]] == [True, False, True]
     assert body["warnings"] == ["part classifier unavailable for 1 of 3 crops"]
     assert all(d["color_candidates"] for d in body["detections"])
+    statuses = [d["classification_status"] for d in body["detections"]]
+    assert statuses == ["ok", "error", "ok"]
+    assert body["detections"][1]["classification_error"]
+    assert body["detections"][0]["classification_error"] is None
+    assert body["timings_ms"]["preprocess"] >= 0
+
+
+def test_pipeline_logs_json_lines_without_image_data(scene, caplog):
+    import logging
+
+    with (
+        caplog.at_level(logging.INFO, logger="pilescan_inference.pipeline"),
+        make_client() as client,
+    ):
+        post(client, encode(scene))
+    records = [json.loads(r.getMessage()) for r in caplog.records]
+    stages = [r["stage"] for r in records]
+    assert stages == ["preprocess", "detect", "classify", "color", "done"]
+    assert records[1]["detections"] == 3
+    assert records[2]["ok"] == 3
+    assert all(len(r.getMessage()) < 400 for r in caplog.records)
 
 
 def test_max_detections_truncates_with_warning(scene):
