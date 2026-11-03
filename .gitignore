@@ -34,3 +34,12 @@ playwright-report/
 
 # session handoff notes (local only)
 .claude/handoff/
+
+# sprint 2: real photos are third-party/personal images, not committed by default.
+# Ground-truth CSVs and the README are tracked.
+fixtures/real/*
+!fixtures/real/*.csv
+!fixtures/real/README.md
+# debug and eval outputs (full size)
+inference/debug/
+eval/out/

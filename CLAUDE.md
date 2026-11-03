@@ -21,13 +21,17 @@ more than feature count.
 
 ## Folder ownership (strict: only edit your own directory)
 
+Sprint 2 (from 2026-11-03):
+
 | Path | Owner |
 | --- | --- |
-| `/frontend` | frontend |
-| `/backend` | backend |
-| `/inference`, `/training` | vision |
-| `/tests` | qa |
-| `/docs`, `/fixtures`, `CLAUDE.md`, `README.md`, `docker-compose.yml`, `.env.example`, `.gitignore` | team-lead |
+| `/backend`, `/frontend`, `docs/phone-testing.md`, `docs/decisions/0008-*.md` | integration |
+| `/inference`, `docs/decisions/0009-*.md` | vision |
+| `/tests`, `/eval`, `docs/eval/`, `fixtures/real/*.csv`, `fixtures/real/README.md` | qa |
+| `/training` | **human owner only** (do not edit) |
+| `/docs` (everything else, incl. `docs/api/`), `/fixtures` (except the qa files above), `CLAUDE.md`, `README.md`, `docker-compose.yml`, `.env.example`, `.gitignore` | team-lead |
+
+Sprint 1 owners were `frontend`, `backend`, `vision` and `qa`, one directory each.
 
 - **Contracts live in `docs/api/`** and are owned by the team lead. If you need a contract
   change, message `team-lead` with the proposed change and the reason. Do not work around the
@@ -76,7 +80,10 @@ more than feature count.
 - **Tests:** every service has a test suite runnable with one command, documented in its
   README.
 
-## Team (agent team "pilescan")
-`team-lead` (integration, contracts, docs), `frontend`, `backend`, `vision`, `qa`.
+## Team (sprint 2)
+`team-lead` (contracts, compose, docs, integration of the sprint), `integration` (backend +
+frontend), `vision` (inference), `qa` (tests + eval).
 Workflow: send your plan to `team-lead` and wait for approval before writing code. Report
-completion to `qa` (with files and run steps) and to `team-lead`.
+completion to `qa` ("integration complete" / "vision complete") and to `team-lead`.
+Only one agent drives the shared `docker compose` stack at a time. Announce it before you
+start and when you're done.
