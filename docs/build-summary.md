@@ -2,7 +2,89 @@
 
 What was built for the PileScan MVP, how it was built, and how to run it. Date: 2026-11-02.
 
-## How it was built
+## Sprint 2 (2026-11-03): real photos and a baseline
+
+Goal: make the app work end to end on real photos and measure a baseline, with no visual
+redesign. Team: `integration` (backend + frontend), `vision` (inference) and `qa` (tests +
+eval). Plans were approved before any code was written, and contracts went through the lead.
+
+**Fixed**
+- **403 on `POST /api/scans` from `http://127.0.0.1:4200`.** Diagnosed with evidence first:
+  through nginx, no `Origin` → 201, `Origin: localhost:4200` → 201,
+  `Origin: 127.0.0.1:4200` → 403 "Invalid CORS request", and the backend logs nothing.
+  Cause: nginx forwarded `Host $host`, which drops the port, so Spring treated a same-origin
+  request as cross-origin and fell back to a hard-coded allow-list. Fix: nginx forwards
+  `Host $http_host` and overwrites `X-Forwarded-*`, Spring trusts the forwarded headers, and
+  all CORS config and `CORS_ALLOWED_ORIGINS` are removed. Verified as 201 on localhost,
+  127.0.0.1, the LAN IP and a simulated Tailscale host. Regression ITs and an E2E project at
+  `127.0.0.1` were added. See [ADR 0008](decisions/0008-same-origin-api-behind-nginx.md).
+- **Zero detections on real photos.** The root cause came from intermediate masks: the
+  threshold was always clamped at 8 ΔE, so textured or shadowed backgrounds flooded the mask
+  (36–79% "foreground"), and a large closing kernel fused the pile into one blob that the
+  max-area filter then dropped. Decoding was ruled out (Pillow 13 reads AVIF and WebP). The
+  new `opencv-lab-v2` normalizes to a 1280 px long side (upscaling thumbnails to at least
+  640 px), models the background with a flat field in LAB, suppresses shadows, uses an
+  adaptive threshold with a noise floor and small morphology, and splits oversized blobs
+  instead of dropping them. All parameters are set by env vars. See
+  [ADR 0009](decisions/0009-detector-preprocessing.md).
+
+**Added**
+- Inference contract 1.1.0 adds per-detection `classification_status` (a classifier failure
+  never removes a detection), `timings_ms.preprocess`, HEIC/AVIF input, alpha flattened onto
+  white, and JSON stage logs (including `median_area_fraction` to spot fragmentation).
+- Public API 1.1.0 adds `Detection.classificationStatus`, `Scan.debugImageUrl` with
+  `GET /api/scans/{id}/debug-image`, and `Scan.inferenceTimingsMs`.
+- Frontend:
+  - clear error messages
+  - a staged loading state with elapsed time (no Cancel, because the server would finish
+    anyway)
+  - a zero-detections state with tips and a debug-overlay toggle
+  - a warning when classification failed for some pieces
+  - client-side downscale to 2048 px (EXIF-aware, alpha on white)
+- [docs/phone-testing.md](phone-testing.md) covers LAN, `tailscale serve` and Cloudflare quick
+  tunnels, and why the camera needs a secure context.
+- An `/eval` harness and [docs/eval/baseline.md](eval/baseline.md). Ground-truth templates are
+  in `fixtures/real/` (the photos are git-ignored).
+
+**Baseline (detector comparison only; accuracy needs the owner's labels)**
+
+| | v1 (before) | v2 (after) |
+| --- | --- | --- |
+| real photos with 0 detections | 3 of 14 (1 is the OOD banner) | 0 |
+| detections per pile photo | 0–10 | 3–114 |
+| inference total, mean (stub) | 219 ms | 137 ms |
+| synthetic sanity set | 5/5 exact | 5/5 exact |
+| Brickognize classify, mean (3 photos) | – | 3.1 s per photo |
+
+v2 finds pieces where v1 found nothing, but it **over-segments**: rulers, bags, printed text
+and shadows show up as detections, and some boxes merge several pieces. Count MAE, part and
+color precision/recall, and set top-1/top-5 are empty until `fixtures/real/counts.csv` (and
+optionally `ground-truth.csv` and `sets.csv`) are filled. Then run
+`cd eval && uv run pilescan-eval report before-stub after-stub` with no re-run.
+
+**Verification:** [tests/report-sprint2.md](../tests/report-sprint2.md). Every suite passes:
+- contract 49–50 (strict 1.1.0)
+- E2E 36/36, including the new states and the `127.0.0.1` project
+- backend `./mvnw verify`
+- inference 92 (+1 xfail)
+- frontend 39 and eval 5
+
+The lead re-ran the contract suite at the committed HEAD on the default config: 50 passed,
+1 skipped. The LAN host was verified by integration. QA's LAN run was skipped because the
+permission classifier correctly blocked `BIND_ADDRESS=0.0.0.0`.
+
+**Still open**
+- Real phone photos and labels: the 14 eval photos are third-party web images, and no
+  accuracy numbers exist yet.
+- Over-segmentation (false positives on non-brick objects). Low-contrast pieces (white or
+  light grey on light backgrounds) are still missed, recorded as a strict xfail.
+- With Brickognize, dense piles take several seconds (about 80 crops), which argues for an
+  async scan flow.
+- Not verified: a browser click-through on a physical phone, and a real Tailscale or
+  Cloudflare tunnel (none were started). Whether `tailscale serve` sets `X-Forwarded-Proto`
+  is unknown; it's harmless because the API returns relative URLs.
+
+## Sprint 1 (2026-11-02): how it was built
 An agent team, with a lead and four teammates working in parallel, each owning one directory:
 
 | Role | Owns | Delivered |
@@ -68,6 +150,8 @@ See [docs/decisions/](decisions/):
 - 0005: separate shape and color
 - 0006: ranking strategy interface
 - 0007: F1 score, catalog import and JPA/JDBC split
+- 0008: same-origin API behind nginx, no CORS (sprint 2)
+- 0009: detector preprocessing, `opencv-lab-v2` (sprint 2)
 
 Notable trade-offs made during the build:
 - Synchronous `POST /api/scans`, because it is simpler for the MVP; `PROCESSING` status
@@ -133,4 +217,9 @@ For an offline, deterministic run: `PART_CLASSIFIER=stub` in `.env`. Tests: see
 1. Implement `RarityWeightedRankingStrategy` (see its Javadoc and ADR 0006).
 2. Build the synthetic training pipeline (`training/README.md`), then add a YOLO `Detector`
    and a custom `PartClassifier` as config options.
-3. Run the manual real-photo tests and add real photos to `fixtures/images/`.
+3. Fill `fixtures/real/counts.csv` (and optionally `ground-truth.csv` and `sets.csv`), then
+   run `cd eval && uv run pilescan-eval report before-stub after-stub` to get the first
+   accuracy numbers (no re-run needed).
+4. Take 10–20 real **phone** photos (plain and textured backgrounds), add them with labels,
+   and re-run the eval. The current photos are web images.
+5. Try the app on a phone over `tailscale serve` (docs/phone-testing.md).
