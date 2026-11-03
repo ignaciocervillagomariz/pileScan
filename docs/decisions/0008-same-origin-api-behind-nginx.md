@@ -15,7 +15,8 @@ the change:
 | `Origin: http://localhost:4200` (also the preflight) | 201 / 200 |
 | `Origin: http://127.0.0.1:4200` (POST and preflight) | 403, body `Invalid CORS request` |
 
-Two causes combined:
+Spring's `DefaultCorsProcessor` writes the 403 itself, so the backend log has no line for it; the only
+signs were the response body and `Vary: Origin` headers. Two causes combined:
 
 1. The backend had a hard-coded CORS allow-list (`CORS_ALLOWED_ORIGINS=http://localhost:4200`).
 2. nginx sent `Host: $host`, and `$host` has no port. Spring decides whether a request is
@@ -40,7 +41,8 @@ The same would hit every LAN IP (phone testing) and every HTTPS tunnel host name
   appended to client-supplied values. `X-Forwarded-Proto` honours an incoming value only when it
   is present, because a TLS-terminating tunnel (`tailscale serve`, `cloudflared`) sits in front
   of nginx and nginx itself only sees HTTP; otherwise nginx uses its own `$scheme`. This is safe
-  only because the backend port is published on `BIND_ADDRESS` (localhost by default) and the
+  only because a spoofed `X-Forwarded-Proto` merely changes generated URLs (the API returns relative
+  ones), and because the backend port is published on `BIND_ADDRESS` (localhost by default) and the
   deployment is a single-user/local one: **anyone who can reach the backend port directly can
   forge forwarded headers**. A real deployment must expose only nginx (or the tunnel) and not the
   backend port.

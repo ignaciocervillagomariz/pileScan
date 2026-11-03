@@ -26,6 +26,10 @@ docker build -t pilescan-frontend .
 docker run --rm -p 4200:80 pilescan-frontend   # nginx serves the build, /api/* -> backend:8080
 ```
 
+nginx forwards `Host $http_host` (not `$host`) to the backend: `$host` drops the port, and Spring
+then treats a same-origin request from `http://127.0.0.1:4200` as cross-origin
+([ADR 0008](../docs/decisions/0008-same-origin-api-behind-nginx.md)).
+
 The service worker is only enabled in production builds, so test installability with the Docker
 image or `npm run build` plus a static server, not with `ng serve`.
 

@@ -71,6 +71,9 @@ export async function prepareForUpload(file: File): Promise<PreparedUpload> {
     if (!context) {
       return { file, note: null };
     }
+    // JPEG has no alpha: composite transparent PNG/WebP onto white (black would hide dark pieces).
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, target.width, target.height);
     context.drawImage(bitmap, 0, 0, target.width, target.height);
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', UPLOAD_JPEG_QUALITY),

@@ -21,6 +21,9 @@ photos, read scans and call the admin endpoints (published ports include the bac
 inference `:8000`). Use it only on a network you trust, never on public or shared Wi-Fi, and set
 `BIND_ADDRESS` back to `127.0.0.1` afterwards.
 
+`capture` itself does not need a secure context, but MDN marks it as limited availability: browsers
+that ignore it show the normal file picker (camera or gallery), which still works.
+
 What works over plain HTTP: choosing or taking a photo (the app uses
 `<input type="file" accept="image/*" capture="environment">`, which hands over to the phone's
 camera app and needs no browser camera API), the scan, review, and results.
