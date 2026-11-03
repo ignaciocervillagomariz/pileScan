@@ -14,19 +14,43 @@ CROP_MAX_SIDE = 512
 DEBUG_MAX_SIDE = 1280
 
 
+try:  # HEIC/HEIF (iPhone) support is optional: without the wheel those uploads give a 400.
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+except ImportError:  # pragma: no cover
+    pass
+
+
 class ImageDecodeError(ValueError):
     """The uploaded bytes are not a decodable image."""
 
 
 def decode_image(data: bytes) -> np.ndarray:
-    """Decode to a BGR uint8 array with the EXIF orientation applied."""
+    """Decode JPEG/PNG/WebP/AVIF/HEIC to RGB->BGR uint8 with the EXIF orientation applied."""
     try:
         with Image.open(io.BytesIO(data)) as img:
             img = ImageOps.exif_transpose(img)
-            rgb = np.asarray(img.convert("RGB"))
+            rgb = np.asarray(_flatten_alpha(img))
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
         raise ImageDecodeError("the uploaded file is not a decodable image") from exc
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+
+ALPHA_BACKGROUND = (255, 255, 255)
+
+
+def _flatten_alpha(img: Image.Image) -> Image.Image:
+    """RGB image; transparent pixels are composited onto white (ALPHA_BACKGROUND).
+
+    White matches the frontend's client-side flatten, and a plain light surface is the
+    capture-screen recommendation. Naive conversion would turn transparency into black.
+    """
+    if img.mode in ("RGBA", "LA", "PA") or "transparency" in img.info:
+        rgba = img.convert("RGBA")
+        base = Image.new("RGBA", rgba.size, (*ALPHA_BACKGROUND, 255))
+        return Image.alpha_composite(base, rgba).convert("RGB")
+    return img.convert("RGB")
 
 
 def padded_crop_bounds(bbox: BBox, image_w: int, image_h: int) -> tuple[int, int, int, int]:
