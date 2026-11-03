@@ -125,7 +125,7 @@ def test_inference_debug_image_is_jpeg_of_input_size(inf_body) -> None:
     assert img.size == (inf_body["image"]["width"], inf_body["image"]["height"])
 
 
-def test_inference_accepts_avif(inference_url, fixtures_dir, inference_up, schema_validator_or_none=None) -> None:
+def test_inference_accepts_avif(inference_url, fixtures_dir, inference_up) -> None:
     buf = io.BytesIO()
     Image.open(fixtures_dir / "pile-small.jpg").save(buf, "AVIF")
     r = _recognize(inference_url, "p.avif", buf.getvalue(), "image/avif")

@@ -16,5 +16,11 @@ export default defineConfig({
   projects: [
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // Regression for the 403 on POST /api/scans from a non-localhost origin.
+    {
+      name: 'loopback-ip',
+      testMatch: /(flow|states)\.spec\.ts/,
+      use: { ...devices['Pixel 7'], baseURL: process.env.FRONTEND_URL_IP ?? 'http://127.0.0.1:4200' },
+    },
   ],
 });
