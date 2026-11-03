@@ -104,7 +104,7 @@ paths:
       description: Available when `Scan.debugImageUrl` is non-null. Used by the "show debug view" toggle.
       responses:
         '200':
-          description: JPEG overlay in the same pixel space as the scan image.
+          description: JPEG overlay with the same aspect ratio as the scan image. It may be downscaled (the detector works at a 1280 px long side), so do not use it for pixel coordinates; boxes are in Detection.bbox.
           content:
             image/jpeg:
               schema: { type: string, format: binary }

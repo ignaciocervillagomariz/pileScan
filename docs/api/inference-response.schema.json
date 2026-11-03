@@ -119,7 +119,7 @@
       ],
       "contentEncoding": "base64",
       "contentMediaType": "image/jpeg",
-      "description": "Base64 JPEG of the input with boxes drawn. Only set when debug=true, otherwise null."
+      "description": "Base64 JPEG of the processed image with boxes drawn. Same aspect ratio as the input but possibly downscaled (detector working size). Only set when debug=true, otherwise null. Not a coordinate reference: use bbox."
     }
   },
   "$defs": {
