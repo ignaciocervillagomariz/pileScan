@@ -71,9 +71,10 @@ the middle of the plateaus, with the noise-adaptive threshold floor as the princ
 - Counts are not accuracy: dense piles still merge touching pieces and assembled models stay
   one detection; white or light-gray pieces on light backgrounds are still missed (a synthetic
   low-contrast test is an `xfail` that records this).
-- Main risk to verify: over-segmentation. Dense photos give 79 (are-these), 114 (d28b) and 76
+- Main open risk: OVER-segmentation (v2 counts jumped: are-these 10 to 79, d28b 9 to 114,
+  images-4 2 to 76), to be confirmed or refuted by QA's ground truth. Details: Dense photos give 79 (are-these), 114 (d28b) and 76
   (images-4) detections, to be compared with ground-truth counts. The `detect` log line has
-  `median_area_fraction` and `blobs_split` so QA can spot fragmentation.
+  `n_detections`, `median_area_fraction` and `blobs_split` so QA can spot fragmentation.
 - Assembled builds (il_1588, a brick duck) are treated as one object by design.
 - Defaults are provisional: the tuning set is tiny (13 web photos plus synthetic scenes). They
   should be revisited when real phone photos and ground-truth counts exist (QA eval harness).

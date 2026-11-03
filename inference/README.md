@@ -107,7 +107,9 @@ Over-segmentation is the main risk to verify against ground truth (dense photos 
  over image area) and `blobs_split` to spot fragmentation. Assembled builds (a duck made of
 bricks) are one object by design.
 
-Known limits: white or light-gray pieces on a light background (low contrast), touching pieces
+Known limits: OVER-segmentation is the main open risk (counts jumped from v1 to v2: are-these
+10 to 79, d28b 9 to 114, images-4 2 to 76), to be confirmed or refuted by QA's ground truth;
+white or light-gray pieces on a light background (low contrast), touching pieces
 that are not separable by color or shape (they stay merged), assembled models (one detection),
 and light studs on white pieces fragmenting the mask. Defaults are provisional (tuned on ~13 web
 photos plus synthetic scenes, see `docs/decisions/0009-detector-preprocessing.md`).

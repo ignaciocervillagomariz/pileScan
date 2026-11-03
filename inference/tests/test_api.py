@@ -106,6 +106,8 @@ def test_pipeline_logs_json_lines_without_image_data(scene, caplog):
     stages = [r["stage"] for r in records]
     assert stages == ["preprocess", "detect", "classify", "color", "done"]
     assert records[1]["detections"] == 3
+    assert records[1]["n_detections"] == 3
+    assert 0 < records[1]["median_area_fraction"] < 1
     assert records[2]["ok"] == 3
     assert all(len(r.getMessage()) < 400 for r in caplog.records)
 

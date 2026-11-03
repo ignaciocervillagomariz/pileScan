@@ -128,6 +128,7 @@ class OpenCvLabDetector:
                     kept_areas.append(part_area / image_area)
         stats["blobs_split"] = split
         stats["kept_after_filters"] = len(detections)
+        stats["n_detections"] = len(detections)
         # Fragmentation indicator: a tiny median relative to the largest pieces suggests
         # over-segmentation (see ADR 0009).
         stats["median_area_fraction"] = (
