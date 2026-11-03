@@ -28,7 +28,7 @@
    The frontend calls `createScan` with multipart `image`.
 2. **Backend** `POST /api/scans`: validates the image, applies EXIF orientation, stores it on a
    volume (`SCAN_STORAGE_DIR`), and calls `POST {INFERENCE_URL}/v1/recognize`.
-3. **Inference**: the detector (classical OpenCV in v1) finds piece regions. For each crop, the
+3. **Inference**: the detector (classical OpenCV, `opencv-lab-v2`: normalize to 1280 px, flat-field background in LAB, shadow suppression, adaptive threshold; see ADR 0009) finds piece regions. For each crop, the
    part classifier (Brickognize, limited concurrency, cached by crop hash) returns top-3 parts.
    The color estimator (k-means in LAB on the mask, CIEDE2000 to the Rebrickable palette)
    returns top-3 colors. The response follows `docs/api/inference-response.schema.json`.
@@ -43,6 +43,17 @@
 6. **Results**: `GET /api/scans/{id}/set-candidates` runs the selected `SetRankingStrategy`
    on the current active detections and returns the top 5 with match %, coverage metrics and
    missing parts.
+
+## Same-origin API (sprint 2)
+The browser only ever talks to nginx (port 4200). nginx serves the SPA and proxies `/api/` to
+the backend. It forwards `Host` (with the port) and overwrites `X-Forwarded-*`, and Spring
+trusts the forwarded headers (`server.forward-headers-strategy=framework`). There is no CORS
+configuration. Any host or scheme in front of nginx (localhost, 127.0.0.1, a LAN IP, a
+Tailscale or Cloudflare HTTPS tunnel) works without config changes. See ADR 0008.
+
+The backend calls inference with `debug=true`. It stores the overlay (served at
+`GET /api/scans/{id}/debug-image`), the per-stage timings, and a per-detection
+`classificationStatus`. A classifier failure never removes a detection (contract 1.1.0).
 
 ## Services and ownership
 | Service | Dir | Port | Owner |

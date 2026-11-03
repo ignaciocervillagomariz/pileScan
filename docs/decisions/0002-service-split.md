@@ -1,6 +1,6 @@
 # ADR 0002: Three services (frontend, Java backend, Python inference)
 
-- Status: Accepted
+- Status: Accepted; the browser-to-API path refined by [ADR 0008](0008-same-origin-api-behind-nginx.md) (same origin through nginx, no CORS)
 - Date: 2026-11-02
 
 ## Context

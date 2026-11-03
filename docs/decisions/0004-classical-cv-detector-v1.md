@@ -1,6 +1,6 @@
 # ADR 0004: Classical OpenCV detector for v1
 
-- Status: Accepted
+- Status: Accepted; detector details amended by [ADR 0009](0009-detector-preprocessing.md) (`opencv-lab-v2`)
 - Date: 2026-11-02
 
 ## Context
