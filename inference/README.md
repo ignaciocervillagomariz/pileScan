@@ -79,19 +79,60 @@ on failure. See [`../training/README.md`](../training/README.md).
 
 ## Components
 
-### Detector `opencv-lab-v1` (no training)
-1. Decode, apply EXIF orientation (Pillow), so boxes are in the pixel space the backend stores.
-2. Downscale to at most 800 px and blur lightly, then convert to CIELAB.
-3. Background model: a plane per Lab channel fitted by least squares on the image border strip,
-   with iterative outlier rejection (pieces touching the border are rejected). A plane, not a
-   constant, absorbs the lighting gradient of phone photos.
-4. Per-pixel distance to the background (lightness weighted 0.8 so soft shadows count less).
-5. Threshold: Otsu on that map, halved and clamped to [5, 8] Lab units. The clamp makes a blank
-   table yield nothing while keeping low-contrast pieces such as white on light gray.
-6. Morphological open then close, external contours, area filter between 0.02% and 25% of the
-   image, boxes and masks mapped back to original pixels.
-7. `detection_score = 0.6 * contrast + 0.4 * solidity`, times 0.8 if the region touches the
-   image border (probably cut off).
+### Detector `opencv-lab-v2` (no training)
+1. Decode (JPEG, PNG, WebP, AVIF via Pillow; HEIC via `pillow-heif` when installed), EXIF
+   orientation, RGB. Transparent pixels (RGBA/LA/palette PNG) are composited onto white, the
+   same as the frontend's client-side flatten, never onto black. Boxes are in this pixel space, which the backend stores.
+2. Normalize size: process at `DETECTOR_LONG_SIDE` (downscale) but upscale tiny images to at
+   least `DETECTOR_MIN_LONG_SIDE`; boxes and masks are scaled back to the input pixels.
+3. Convert to CIELAB. Background model: a smooth per-channel field grown from the border ring by
+   normalized convolution over the pixels that stay close to the current model. It absorbs
+   gradients, vignetting and soft texture, and pieces are never absorbed (they exceed the
+   limit). Optional CLAHE on L.
+4. Distance to the model, lightness down-weighted when darker (0.35) and up-weighted when
+   lighter (0.8). Shadow test: darker, same chroma (chroma distance < 6, L drop < 30) counts as
+   background.
+5. Threshold: Otsu halved, clamped to `[max(THRESHOLD_MIN, NOISE_K * background noise),
+   THRESHOLD_MAX]`. The noise term adapts the threshold to wood, carpet and paper.
+6. Morphology (open then small close), external contours, area filter relative to the image.
+7. Merged blobs are split: first by high-contrast cores (seeds, `SEED_FACTOR` x threshold) with
+   a watershed, then by distance-transform watershed for blobs that are oversized or non convex.
+8. Out-of-distribution guard: foreground above `FG_MAX_FRACTION` returns no detections and the
+   warning `background not uniform: no pieces detected`.
+9. `detection_score = 0.6 * contrast + 0.4 * solidity`, times 0.8 if the region touches the
+   image border.
+
+Known limits: white or light-gray pieces on a light background (low contrast), touching pieces
+that are not separable by color or shape (they stay merged), assembled models (one detection),
+and light studs on white pieces fragmenting the mask. Defaults are provisional (tuned on ~13 web
+photos plus synthetic scenes, see `docs/decisions/0009-detector-preprocessing.md`).
+
+All parameters are environment variables with the `DETECTOR_` prefix (`detectors/params.py`):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DETECTOR_LONG_SIDE` | 1280 | Max long side used for processing |
+| `DETECTOR_MIN_LONG_SIDE` | 640 | Smaller images are upscaled to this long side |
+| `DETECTOR_BORDER_FRACTION` | 0.04 | Border ring width that seeds the background model |
+| `DETECTOR_BG_SIGMA_FRACTION` | 0.06 | Smoothness of the background model (fraction of the side) |
+| `DETECTOR_BG_ITERATIONS` | 8 | Growth iterations of the model |
+| `DETECTOR_BG_LIMIT_MIN` / `DETECTOR_BG_LIMIT` | 5 / 15 | dE range for joining the model, `clip(noise_k * ring noise)` |
+| `DETECTOR_CLAHE` | false | CLAHE on L before the distance |
+| `DETECTOR_L_WEIGHT_DARKER` / `DETECTOR_L_WEIGHT_LIGHTER` | 0.35 / 0.8 | Lightness weight in the distance |
+| `DETECTOR_SHADOW_CHROMA_MAX` | 6.0 | Chroma dE under which a darker pixel is shadow |
+| `DETECTOR_SHADOW_L_MAX` | 30.0 | Max L drop treated as shadow |
+| `DETECTOR_THRESHOLD_MIN` / `DETECTOR_THRESHOLD_MAX` | 6 / 9 | Threshold clamp (dE) |
+| `DETECTOR_NOISE_K` | 4.0 | Threshold floor = k x background noise |
+| `DETECTOR_OPEN_FRACTION` / `DETECTOR_CLOSE_FRACTION` | 1/400 / 1/300 | Morphology kernels (fraction of the long side) |
+| `DETECTOR_MIN_AREA_FRACTION` / `DETECTOR_MAX_AREA_FRACTION` | 0.00015 / 0.35 | Contour area limits (fraction of image area) |
+| `DETECTOR_MIN_SOLIDITY` | 0.35 | Discard very ragged regions |
+| `DETECTOR_SEED_SPLIT`, `DETECTOR_SEED_FACTOR`, `DETECTOR_SEED_ERODE_FRACTION` | true, 2.5, 1/250 | Split by high-contrast cores |
+| `DETECTOR_WATERSHED`, `DETECTOR_WATERSHED_SOLIDITY`, `DETECTOR_WATERSHED_PEAK_FRACTION` | true, 0.95, 0.6 | Distance-transform split of oversized or non-convex blobs |
+| `DETECTOR_FG_MAX_FRACTION` | 0.8 | Out-of-distribution guard |
+
+Logs: one JSON line per stage on logger `pilescan_inference.pipeline` (`preprocess`, `detect`
+with the detector statistics, `classify` with ok/no_match/error counts, `color`, `done`), with
+timings and counts, never image data.
 
 ### Color estimator `kmeans-lab-ciede2000-v1`
 Works on the mask pixels only: erode the mask (blended edge pixels), drop specular highlights

@@ -11,6 +11,7 @@ from pilescan_inference.domain import (
     ColorEstimator,
     ColorResult,
     Crop,
+    DetectionReport,
     Detector,
     DetectorError,
     PartClassifier,
@@ -63,21 +64,23 @@ class Pipeline:
 
         t0 = time.perf_counter()
         try:
-            raw = await asyncio.to_thread(self.detector.detect, image)
+            report = await asyncio.to_thread(_run_detector, self.detector, image)
         except DetectorError:
             raise
         except Exception as exc:  # a detector bug must surface as 503, not a crash
             raise DetectorError(f"detector failed: {exc}") from exc
         detect_ms = _ms(t0)
+        raw = list(report.detections)
+        warnings.extend(report.warnings)
         detected = len(raw)
-        log_stage("detect", t0, detector=self.detector.name, detections=detected)
+        log_stage("detect", t0, detector=self.detector.name, detections=detected, **report.stats)
 
         if len(raw) > max_detections:
             raw = sorted(raw, key=lambda d: d.score * d.bbox.width * d.bbox.height, reverse=True)
             raw = raw[:max_detections]
             warnings.append(f"detections truncated to max_detections={max_detections}")
         raw.sort(key=lambda d: (d.bbox.y, d.bbox.x))
-        if not raw:
+        if not raw and not warnings:
             warnings.append("no pieces detected")
 
         crops = [Crop(jpeg=encode_crop(image, d.bbox), bbox=d.bbox) for d in raw]
@@ -156,6 +159,14 @@ class Pipeline:
             crop = image[b.y : b.y + b.height, b.x : b.x + b.width]
             results.append(self.colors.estimate(crop, d.mask))
         return results
+
+
+def _run_detector(detector: Detector, image: np.ndarray) -> DetectionReport:
+    """Use the detector's report (warnings, stats) when it offers one, else plain `detect`."""
+    reporter = getattr(detector, "detect_report", None)
+    if reporter is not None:
+        return reporter(image)
+    return DetectionReport(detector.detect(image), [], {})
 
 
 def _ms(since: float) -> float:

@@ -34,6 +34,15 @@ class RawDetection:
 
 
 @dataclass(frozen=True, slots=True)
+class DetectionReport:
+    """Detector output plus a user-visible warning list and numbers for logs/debug."""
+
+    detections: list[RawDetection]
+    warnings: list[str]
+    stats: dict[str, float | int | str]
+
+
+@dataclass(frozen=True, slots=True)
 class Crop:
     """JPEG-encoded padded crop of one detection, as sent to the part classifier."""
 

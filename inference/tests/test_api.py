@@ -53,7 +53,7 @@ def test_health_reports_pipeline():
     assert body == {
         "status": "ok",
         "pipeline": {
-            "detector": "opencv-lab-v1",
+            "detector": "opencv-lab-v2",
             "part_classifier": "stub-v1",
             "color_estimator": "kmeans-lab-ciede2000-v1",
         },

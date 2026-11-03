@@ -10,7 +10,7 @@ async def test_defaults_build_the_documented_pipeline(tmp_path):
     detector, classifier, colors = build_components(Settings(cache_dir=tmp_path))
     assert isinstance(classifier, BrickognizeClassifier)
     assert (detector.name, classifier.name, colors.name) == (
-        "opencv-lab-v1",
+        "opencv-lab-v2",
         "brickognize-v1",
         "kmeans-lab-ciede2000-v1",
     )
