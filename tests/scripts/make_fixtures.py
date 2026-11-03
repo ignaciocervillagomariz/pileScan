@@ -44,6 +44,7 @@ def main() -> None:
     pile(6, (1600, 1200), 1).save(OUT / "pile-small.jpg", quality=92)
     pile(25, (2400, 1800), 2).save(OUT / "pile-medium.png")
     pile(6, (1600, 1200), 3).save(OUT / "pile-small.webp", quality=90)
+    pile(12, (4000, 3000), 6).save(OUT / "pile-large.jpg", quality=92)  # long side > 2048: client downscale
     Image.new("RGB", (1200, 900), BG).save(OUT / "blank.jpg")
     (OUT / "not-an-image.txt").write_text("this is not an image\n")
     (OUT / "fake.jpg").write_bytes(b"not really a jpeg")

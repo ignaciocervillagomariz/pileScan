@@ -18,6 +18,12 @@ def scan(openapi, backend_url, fixtures_dir, services_up):
         return call(openapi, "POST", f"{backend_url}/api/scans", 201, files={"image": ("pile.jpg", f, "image/jpeg")}).json()
 
 
+def _same_framing(overlay, image) -> None:
+    """The overlay may be downscaled (v2 draws at the 1280 px working size) but must keep the aspect ratio."""
+    assert overlay[0] <= image[0] and overlay[1] <= image[1] or overlay == image
+    assert abs(overlay[0] / overlay[1] - image[0] / image[1]) < 0.01, f"{overlay} vs {image}"
+
+
 # ---------------------------------------------------------------- public API 1.1.0
 
 def test_scan_has_1_1_fields(scan) -> None:
@@ -48,7 +54,7 @@ def test_debug_image_endpoint(openapi, backend_url, scan) -> None:
     r = call(openapi, "GET", backend_url + url, 200)
     assert r.headers["content-type"].startswith("image/jpeg")
     img = Image.open(io.BytesIO(r.content))
-    assert img.size == (scan["image"]["width"], scan["image"]["height"]), "debug overlay must share the scan pixel space"
+    _same_framing(img.size, (scan["image"]["width"], scan["image"]["height"]))
 
 
 def test_debug_image_404_for_unknown_scan(openapi, backend_url, services_up) -> None:
@@ -122,7 +128,7 @@ def test_inference_debug_image_is_jpeg_of_input_size(inf_body) -> None:
 
     img = Image.open(io.BytesIO(base64.b64decode(inf_body["debug_image"])))
     assert img.format == "JPEG"
-    assert img.size == (inf_body["image"]["width"], inf_body["image"]["height"])
+    _same_framing(img.size, (inf_body["image"]["width"], inf_body["image"]["height"]))
 
 
 def test_inference_accepts_avif(inference_url, fixtures_dir, inference_up) -> None:
