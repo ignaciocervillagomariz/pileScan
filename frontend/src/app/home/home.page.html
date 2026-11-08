@@ -1,0 +1,45 @@
+<ion-content>
+  <main>
+    <section
+      #hero
+      class="hero"
+      [class.surface-strong]="debugParams.surface === 'strong'"
+      [attr.data-hero-state]="heroState()"
+      data-testid="home-hero"
+      aria-labelledby="home-headline"
+    >
+      <!-- Decorative: every piece of content and the CTA live in the card below. -->
+      <canvas #canvas class="hero-canvas" aria-hidden="true" data-testid="hero-canvas"></canvas>
+
+      <div #card class="hero-card">
+        <p class="brand">PileScan</p>
+        <h1 id="home-headline" data-testid="home-headline">Which sets are hiding in your pile?</h1>
+        <p class="subhead">
+          Photograph your loose bricks. PileScan counts every piece and ranks the sets they came
+          from.
+        </p>
+        <a class="btn primary cta" routerLink="/scan" data-testid="home-cta">Scan your pile</a>
+      </div>
+    </section>
+
+    <section class="how" aria-labelledby="how-heading">
+      <h2 id="how-heading">How it works</h2>
+      <ol>
+        <li>
+          <strong>Spread and snap.</strong>
+          Lay the pieces out on a plain table and take one photo.
+        </li>
+        <li>
+          <strong>Check the count.</strong>
+          PileScan finds every piece, part and color. Fix anything it got wrong.
+        </li>
+        <li>
+          <strong>Find the sets.</strong>
+          See which official sets match best, with the parts you are still missing.
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <app-footer />
+</ion-content>

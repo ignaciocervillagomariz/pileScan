@@ -1,0 +1,147 @@
+// The home page follows the OS color scheme. The rest of the app has no dark mode yet, so the
+// tokens are overridden here only; children such as the footer inherit them.
+:host {
+  --hero-surface: #d9d4cc;
+  --hero-vignette: rgba(70, 52, 34, 0.16);
+  --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .26 0 0 0 0 .2 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --hero-card-bg: #ffffff;
+  --hero-card-shadow: 0 10px 30px rgba(31, 42, 68, 0.12), 0 1px 3px rgba(31, 42, 68, 0.08);
+  --cta-bg: var(--ps-brand-dark);
+  --cta-ink: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --ps-canvas: #171513;
+    --ps-surface: #1f1c1a;
+    --ps-ink: #f2eee8;
+    --ps-ink-soft: #c9c2b8;
+    --ps-line: #3a3632;
+    --ps-brand-dark: #fdba74;
+    --hero-surface: #2b2825;
+    --hero-vignette: rgba(0, 0, 0, 0.35);
+    --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .9 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --hero-card-bg: #1f1c1a;
+    --hero-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --cta-bg: #fdba74;
+    --cta-ink: #1f1c1a;
+  }
+}
+
+// ion-content colors its text through --color (default: the global ink), not `color`.
+ion-content {
+  --background: var(--ps-canvas);
+  --color: var(--ps-ink);
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  height: 100svh;
+  min-height: 560px;
+  max-height: 1100px;
+  // Vignette sits behind the transparent canvas, so it darkens the table, not the bricks.
+  background:
+    radial-gradient(ellipse 75% 70% at 50% 48%, transparent 45%, var(--hero-vignette) 100%),
+    var(--hero-grain),
+    var(--hero-surface);
+
+  &.surface-strong {
+    --hero-vignette: rgba(70, 52, 34, 0.3);
+    background:
+      radial-gradient(ellipse 70% 65% at 50% 48%, transparent 35%, var(--hero-vignette) 100%),
+      var(--hero-grain),
+      var(--hero-grain),
+      var(--hero-surface);
+  }
+}
+
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+}
+
+[data-hero-state='live'] .hero-canvas {
+  opacity: 1;
+}
+
+.hero-card {
+  position: absolute;
+  z-index: 1;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+}
+
+@media (min-width: 768px) {
+  .hero-card {
+    top: 50%;
+    right: auto;
+    left: clamp(24px, 7vw, 120px);
+    width: min(440px, 44vw);
+    padding: 32px;
+    transform: translateY(-50%);
+  }
+}
+
+.brand {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ps-ink-soft);
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.subhead {
+  margin: 0 0 20px;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--ps-ink-soft);
+}
+
+.cta {
+  background: var(--cta-bg);
+  border-color: var(--cta-bg);
+  color: var(--cta-ink);
+  text-decoration: none;
+}
+
+.how {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 16px 8px;
+
+  h2 {
+    margin: 0 0 16px;
+    font-size: 1.375rem;
+  }
+
+  ol {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 12px;
+    line-height: 1.5;
+  }
+
+  strong {
+    display: block;
+  }
+}
