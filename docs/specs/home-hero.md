@@ -19,6 +19,10 @@ Status: plan approved 2026-11-08. Owner of the implementation: single frontend s
   `"start_url": "/scan"` (installed users want to scan). `/scan` must work offline through the
   service worker's navigation fallback. E2E tests are updated for the new routes.
 - **Picking up a stacked brick** takes it and everything above it, as a sub-stack.
+- **Phase 1 review (2026-11-09):** surface (b), the stronger grain and vignette, is the light
+  surface; the warm charcoal stays for dark mode. The camera is tilted 7° from straight down.
+  Studs on white and light grey bricks get a baked contact shade (a halo on the top face),
+  with exposure 0.88 and a slightly off-white White so the shading does not clip.
 - **Lifted-brick shadow:** the held brick leaves the shadow map and gets a blob shadow whose
   size, softness and offset scale with height.
 
