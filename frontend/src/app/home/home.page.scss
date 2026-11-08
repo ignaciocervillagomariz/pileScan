@@ -2,7 +2,7 @@
 // tokens are overridden here only; children such as the footer inherit them.
 :host {
   --hero-surface: #d9d4cc;
-  --hero-vignette: rgba(70, 52, 34, 0.16);
+  --hero-vignette: rgba(70, 52, 34, 0.3);
   --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .26 0 0 0 0 .2 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --hero-card-bg: #ffffff;
   --hero-card-shadow: 0 10px 30px rgba(31, 42, 68, 0.12), 0 1px 3px rgba(31, 42, 68, 0.08);
@@ -41,19 +41,12 @@ ion-content {
   min-height: 560px;
   max-height: 1100px;
   // Vignette sits behind the transparent canvas, so it darkens the table, not the bricks.
+  // The grain layer is doubled on purpose: the "stronger grain" surface chosen in review.
   background:
-    radial-gradient(ellipse 75% 70% at 50% 48%, transparent 45%, var(--hero-vignette) 100%),
+    radial-gradient(ellipse 70% 65% at 50% 48%, transparent 35%, var(--hero-vignette) 100%),
+    var(--hero-grain),
     var(--hero-grain),
     var(--hero-surface);
-
-  &.surface-strong {
-    --hero-vignette: rgba(70, 52, 34, 0.3);
-    background:
-      radial-gradient(ellipse 70% 65% at 50% 48%, transparent 35%, var(--hero-vignette) 100%),
-      var(--hero-grain),
-      var(--hero-grain),
-      var(--hero-surface);
-  }
 }
 
 .hero-canvas {

@@ -72,7 +72,7 @@ export class HomePage implements OnDestroy {
           canvas: this.canvasEl().nativeElement,
           card: this.cardEl().nativeElement,
         },
-        { tier, tilt: this.debugParams.tilt, debug: this.debugParams.debug },
+        { tier, debug: this.debugParams.debug },
       );
       this.heroState.set('live');
     } catch (error) {

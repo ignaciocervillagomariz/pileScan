@@ -10,7 +10,6 @@ import { HeroScene, Theme } from './scene';
 
 export interface HeroOptions {
   readonly tier: QualityTier;
-  readonly tilt: boolean;
   readonly debug: boolean;
 }
 
@@ -35,7 +34,7 @@ function relativeRect(el: HTMLElement, host: HTMLElement): PixelRect {
 export function createHero(els: HeroElements, options: HeroOptions): HeroHandle {
   const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
   const theme = (): Theme => (darkQuery.matches ? 'dark' : 'light');
-  const scene = new HeroScene(els.canvas, { tier: options.tier, tilt: options.tilt, theme: theme() });
+  const scene = new HeroScene(els.canvas, { tier: options.tier, theme: theme() });
   const stats = new FrameStats();
   const hud = options.debug ? createHud(els.host) : null;
 

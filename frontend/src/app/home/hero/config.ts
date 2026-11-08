@@ -19,22 +19,28 @@ export const DIMENSIONS = {
 
 export const CAMERA = {
   fovDeg: 30,
-  /** Alternative framing: tilt away from straight down, in degrees. */
+  /** Tilt away from straight down (chosen over pure top-down in phase 1 review). */
   tiltDeg: 7,
   /**
    * How big one stud looks on screen, in CSS pixels: a share of the viewport's short side,
    * clamped so bricks stay readable on phones and don't get huge on large monitors.
    */
   studPx: { shareOfShortSide: 0.035, min: 20, max: 32 },
-  near: 1,
+  /** The camera is always tens of units away: a far near plane keeps depth precise. */
+  near: 5,
   far: 2000,
 } as const;
 
 export const LIGHTING = {
-  exposure: 1,
+  /** Below 1 so white tops stay under clipping and their stud shading survives. */
+  exposure: 0.88,
   environmentIntensity: 0.75,
-  /** Key light comes from the upper left so shadows fall to the lower right. */
-  keyDirection: { x: -0.45, y: 1, z: -0.55 },
+  /**
+   * Key light comes from the upper left so shadows fall to the lower right. Elevation ~47°:
+   * low enough that stud sides split into a lit and a shaded half, which keeps studs visible
+   * on white bricks.
+   */
+  keyDirection: { x: -0.5, y: 0.75, z: -0.5 },
   keyColor: '#fff6ea',
   keyIntensity: 2.1,
   shadowBias: -0.0004,
@@ -43,6 +49,17 @@ export const LIGHTING = {
   shadowMargin: 4,
   /** Darkness of the shadow-only ground, per page theme. */
   shadowOpacity: { light: 0.3, dark: 0.55 },
+} as const;
+
+/**
+ * Baked contact shade around stud bases: brightness at the base, how far up the wall it fades
+ * (share of stud height), and the halo ring on the top face (width and lift against z-fighting).
+ */
+export const STUD_SHADE = {
+  base: 0.58,
+  reach: 0.9,
+  haloWidth: 1.2 * MM,
+  haloLift: 0.002,
 } as const;
 
 export const MATERIAL = {

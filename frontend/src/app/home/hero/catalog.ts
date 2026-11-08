@@ -47,7 +47,8 @@ export const PALETTE: readonly BrickColor[] = [
   { name: 'Red', hex: '#c91a09' },
   { name: 'Blue', hex: '#0055bf' },
   { name: 'Yellow', hex: '#f2cd37' },
-  { name: 'White', hex: '#f4f4f1' },
+  // Slightly below pure white, as white plastic photographs: keeps its shading from clipping.
+  { name: 'White', hex: '#ecebe6' },
   { name: 'Black', hex: '#1b2a34' },
   { name: 'Light Bluish Gray', hex: '#a0a5a9' },
   { name: 'Dark Bluish Gray', hex: '#6c6e68' },

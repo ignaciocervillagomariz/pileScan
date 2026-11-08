@@ -33,7 +33,6 @@ export type Theme = 'light' | 'dark';
 
 export interface SceneOptions {
   readonly tier: QualityTier;
-  readonly tilt: boolean;
   readonly theme: Theme;
 }
 
@@ -50,10 +49,7 @@ export class HeroScene {
   private readonly colors = PALETTE.map((c) => new Color(c.hex));
   private fit: CameraFit | null = null;
 
-  constructor(
-    canvas: HTMLCanvasElement,
-    private readonly options: SceneOptions,
-  ) {
+  constructor(canvas: HTMLCanvasElement, options: SceneOptions) {
     const { tier } = options;
     this.renderer = new WebGLRenderer({
       canvas,
@@ -102,9 +98,9 @@ export class HeroScene {
     this.camera.aspect = viewport.widthPx / viewport.heightPx;
 
     const fit = fitCamera(viewport, CAMERA.fovDeg);
-    const tilt = this.options.tilt ? (CAMERA.tiltDeg * Math.PI) / 180 : 0;
+    const tilt = (CAMERA.tiltDeg * Math.PI) / 180;
     this.camera.position.set(0, fit.distance * Math.cos(tilt), fit.distance * Math.sin(tilt));
-    // Screen up is -Z, so the ground's +Z axis points down the screen in both framings.
+    // Screen up is -Z, so the ground's +Z axis points down the screen.
     this.camera.up.set(0, 0, -1);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
