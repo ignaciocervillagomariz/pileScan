@@ -4,11 +4,30 @@
       #hero
       class="hero"
       [attr.data-hero-state]="heroState()"
+      [attr.data-hero-activity]="heroActivity()"
       data-testid="home-hero"
       aria-labelledby="home-headline"
     >
       <!-- Decorative: every piece of content and the CTA live in the card below. -->
       <canvas #canvas class="hero-canvas" aria-hidden="true" data-testid="hero-canvas"></canvas>
+
+      @if (heroState() === 'live') {
+        <button
+          type="button"
+          class="replay"
+          aria-label="Drop the bricks again"
+          title="Drop the bricks again"
+          data-testid="hero-replay"
+          (click)="replay()"
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              d="M12 5a7 7 0 1 1-6.32 4H8.5a1 1 0 0 0 0-2H4a1 1 0 0 0-1 1v4.5a1 1 0 0 0 2 0v-1.9A9 9 0 1 0 12 3a1 1 0 0 0 0 2Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      }
 
       <div #card class="hero-card">
         <p class="brand">PileScan</p>

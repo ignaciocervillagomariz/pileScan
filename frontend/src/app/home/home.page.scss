@@ -86,6 +86,24 @@ ion-content {
   }
 }
 
+.replay {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--ps-line);
+  border-radius: 50%;
+  background: var(--hero-card-bg);
+  color: var(--ps-ink);
+  box-shadow: var(--hero-card-shadow);
+  cursor: pointer;
+}
+
 .brand {
   margin: 0 0 8px;
   font-size: 0.8125rem;

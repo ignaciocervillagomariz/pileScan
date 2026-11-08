@@ -70,14 +70,56 @@ export const MATERIAL = {
   ior: 1.53,
 } as const;
 
-/** Phase 1 only: the static preview arrangement. */
-export const PREVIEW = {
+export const WALLS = {
+  /** Gap between the visible edge and the wall's inner face, in studs. */
+  inset: 0.4,
+  thickness: 2,
+  /** Free space kept around the text card. */
+  cardMargin: 0.8,
+  /** Walls reach this far above the spawn height, so nothing lands on top of them. */
+  headroom: 6,
+} as const;
+
+export const PHYSICS = {
+  /** Fixed 60 Hz step; at most this many steps per frame so a slow frame can't spiral. */
+  step: 1 / 60,
+  maxStepsPerFrame: 4,
+  /** Plastic on a table: low bounce, fairly high friction. */
+  restitution: 0.12,
+  friction: 0.7,
+  density: 1,
+  linearDamping: 0.05,
+  angularDamping: 0.35,
+  /**
+   * Speed cap in studs/s. Without it a 1 s drop on a tall phone screen hits ~80 studs/s and a
+   * landing brick can press a resting one into the floor. Most of a drop is acceleration, so
+   * the cap barely changes how long it takes.
+   */
+  maxSpeed: 40,
+  /** Above Rapier's defaults (4 and 1): stiffer stacks and more than one CCD hit per step. */
+  solverIterations: 8,
+  ccdSubsteps: 4,
+} as const;
+
+export const CASCADE = {
+  /** Total time over which bricks are released. */
+  durationSeconds: 2.5,
+  /** Release-time jitter as a share of the gap between two bricks. */
+  timeJitter: 0.6,
+  /** Spawn height as a share of the camera height: bricks enter from above the view. */
+  spawnHeightShare: 0.45,
+  /** A fall from the spawn height takes about this long. Gravity is derived from it. */
+  fallSeconds: 1,
+  maxSpin: 6,
+  maxDrift: 1.5,
+  /** Bricks released close together in time keep at least this far apart, in studs. */
+  minSpacing: 2.2,
+  maxAttempts: 60,
   seed: 7,
-  /** Free space kept around the edges and the text card, in studs. */
-  edgeMargin: 1.5,
-  cardMargin: 1.5,
-  /** Spacing between bricks as a share of their bounding radius. */
-  spacing: 1.08,
-  maxAttemptsPerBrick: 400,
-  stackChance: 0.12,
+} as const;
+
+/** Runtime downgrade when the device can't keep up during the cascade. */
+export const ADAPTIVE = {
+  warmupFrames: 45,
+  minFps: 48,
 } as const;

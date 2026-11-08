@@ -19,10 +19,23 @@ export class FrameStats {
     return 1000 / mean;
   }
 
+  /** Median frame time in ms: the typical cost, ignoring one-off hitches like shader compiles. */
+  medianMs(): number {
+    return this.percentile(0.5);
+  }
+
   /** 95th percentile frame time in ms: catches hitches an average hides. */
   p95Ms(): number {
+    return this.percentile(0.95);
+  }
+
+  reset(): void {
+    this.samples.length = 0;
+  }
+
+  private percentile(p: number): number {
     if (this.samples.length === 0) return 0;
     const sorted = [...this.samples].sort((a, b) => a - b);
-    return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+    return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
   }
 }

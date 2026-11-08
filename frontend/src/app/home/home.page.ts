@@ -12,10 +12,11 @@ import { AppFooter } from '../shared/ui/app-footer.component';
 import {
   readConnection,
   readQualitySignals,
-  supportsWebGL2,
+  supportsHardwareWebGL2,
 } from './hero/capabilities';
 import { readHeroDebugParams } from './hero/debug-params';
-import type { HeroHandle } from './hero/hero';
+import { measureAsync } from './hero/perf';
+import type { HeroActivity, HeroHandle } from './hero/hero';
 import { connectionAllows3d, pickTier } from './hero/quality';
 
 /**
@@ -38,6 +39,8 @@ export class HomePage implements OnDestroy {
   private readonly cardEl = viewChild.required<ElementRef<HTMLElement>>('card');
 
   protected readonly heroState = signal<HeroState>('static');
+  /** `moving` during the cascade or a push, `resting` once every brick sleeps. */
+  protected readonly heroActivity = signal<HeroActivity | null>(null);
   protected readonly debugParams = readHeroDebugParams(window.location.search);
 
   private hero: HeroHandle | null = null;
@@ -54,26 +57,40 @@ export class HomePage implements OnDestroy {
     this.hero = null;
   }
 
+  protected replay(): void {
+    this.hero?.replay();
+  }
+
   private async startHero(): Promise<void> {
     if (this.destroyed) return;
     const tier = pickTier(readQualitySignals(window));
-    if (!tier.render3d || !connectionAllows3d(readConnection(window)) || !supportsWebGL2(document)) {
+    if (!tier.render3d || !connectionAllows3d(readConnection(window)) || !supportsHardwareWebGL2(document)) {
       this.heroState.set('fallback');
       return;
     }
 
     this.heroState.set('loading');
     try {
-      const { createHero } = await import('./hero/hero');
+      const { createHero } = await measureAsync('load', () => import('./hero/hero'));
       if (this.destroyed) return;
-      this.hero = createHero(
+      const hero = await measureAsync('create', () => createHero(
         {
           host: this.hostEl().nativeElement,
           canvas: this.canvasEl().nativeElement,
           card: this.cardEl().nativeElement,
         },
-        { tier, debug: this.debugParams.debug },
-      );
+        {
+          tier,
+          debug: this.debugParams.debug,
+          onActivity: (activity) => this.heroActivity.set(activity),
+        },
+      ));
+      // The page may have been left while the scene was getting ready.
+      if (this.destroyed) {
+        hero.dispose();
+        return;
+      }
+      this.hero = hero;
       this.heroState.set('live');
     } catch (error) {
       console.warn('Hero scene unavailable, showing the static surface.', error);
