@@ -16,7 +16,7 @@
     } @else if (!scan()) {
       <div class="banner error" role="alert" data-testid="review-error">
         {{ store.error()?.status === 404 ? 'We could not find that scan.' : (store.error()?.message ?? 'Could not load the scan.') }}
-        <p><a routerLink="/">Start a new scan</a></p>
+        <p><a routerLink="/scan">Start a new scan</a></p>
       </div>
     } @else {
       @let current = scan()!;
@@ -25,7 +25,7 @@
         <div class="banner error" role="alert" data-testid="scan-failed">
           <strong>We could not analyze this photo.</strong>
           {{ current.errorMessage ?? 'The recognition service is unavailable.' }}
-          You can add pieces by hand below, or <a routerLink="/">try another photo</a>.
+          You can add pieces by hand below, or <a routerLink="/scan">try another photo</a>.
         </div>
       }
 
@@ -68,7 +68,7 @@
           </ul>
           <p>You can also add pieces by hand below.</p>
           <div class="row">
-            <a class="btn primary" data-testid="zero-detections-retry" routerLink="/">Try another photo</a>
+            <a class="btn primary" data-testid="zero-detections-retry" routerLink="/scan">Try another photo</a>
             @if (current.debugImageUrl) {
               <button
                 type="button"

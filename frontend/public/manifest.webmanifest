@@ -1,10 +1,11 @@
 {
+  "id": "/",
   "name": "PileScan",
   "short_name": "PileScan",
   "description": "Photograph a pile of loose bricks and find the sets they came from.",
   "display": "standalone",
   "orientation": "portrait",
-  "start_url": "/",
+  "start_url": "/scan",
   "scope": "/",
   "background_color": "#f4f1ea",
   "theme_color": "#1f2a44",

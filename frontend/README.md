@@ -55,7 +55,8 @@ src/app/
     ui/                  footer (credits + disclaimer), color swatch
 ```
 
-Routes: `/` capture, `/scan/:id` review, `/scan/:id/results` results (all lazy loaded).
+Routes: `/` home (3D hero, spec in `docs/specs/home-hero.md`), `/scan` capture, `/scan/:id` review,
+`/scan/:id/results` results (all lazy loaded). The installed PWA starts at `/scan`.
 
 ## Decisions
 
@@ -91,6 +92,7 @@ Routes: `/` capture, `/scan/:id` review, `/scan/:id/results` results (all lazy l
 
 | Screen | Ids |
 | --- | --- |
+| Home | `home-hero` (`data-hero-state` = `static` / `loading` / `live` / `fallback`), `hero-canvas`, `home-headline`, `home-cta`, `hero-debug-hud` (only with `?hero-debug`) |
 | Capture | `capture-input` (camera, `capture=environment`), `gallery-input`, `camera-button` (native only), `photo-preview`, `upload-button`, `choose-another-button`, `upload-loading`, `capture-error`, `photo-tips` |
 | Review | `scan-canvas` (`data-selected-detection` = id of the tapped/edited detection, `data-highlighted-detections` = comma-separated ids of expanded groups), `total-count`, `summary-detail`, `group-list`, `group-row` (`data-part-num`, `data-color-id`, `data-count`), `group-count`, `detection-row` (`data-detection-id`), `add-piece-button`, `draw-hint`, `add-without-box-button`, `cancel-draw-button`, `find-sets-button`, `scan-failed`, `scan-warning`, `review-loading`, `review-error`, `review-action-error` |
 | Edit/add dialog | `edit-dialog`, `edit-close`, `part-search-input`, `part-results`, `part-option` (`data-part-num`), `part-no-results`, `part-candidate-0..2`, `color-search-input`, `color-list`, `color-option` (`data-color-id`), `color-candidate-0..2`, `edit-current-part`, `edit-current-color`, `edit-save`, `delete-detection-button`, `edit-cancel`, `edit-error` |
