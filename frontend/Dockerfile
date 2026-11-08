@@ -7,6 +7,10 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+# Pre-compress for nginx's gzip_static: level 9 once at build time instead of level 1 per request.
+RUN find dist/pilescan/browser -type f \( -name '*.js' -o -name '*.css' -o -name '*.wasm' \
+      -o -name '*.html' -o -name '*.json' -o -name '*.svg' -o -name '*.webmanifest' \) \
+      -exec gzip -9 -k {} +
 
 FROM nginx:1.29-alpine AS runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
