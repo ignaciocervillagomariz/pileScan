@@ -78,6 +78,13 @@ describe('screenToGround and pixelRectToGround (straight down)', () => {
     expect(screenToGround(500, 600, cam).z).toBeCloseTo(cam.ground.maxZ);
   });
 
+  it('projects onto a raised plane: closer to the camera, the same pixel covers less ground', () => {
+    const edge = screenToGround(1000, 300, cam);
+    const raised = screenToGround(1000, 300, cam, 0.6);
+    expect(raised.x).toBeLessThan(edge.x);
+    expect(raised.x / edge.x).toBeCloseTo((cam.height - 0.6) / cam.height);
+  });
+
   it('maps a DOM rectangle to the matching ground rectangle', () => {
     const r = pixelRectToGround({ left: 500, top: 300, width: 100, height: 50 }, cam);
     expect(r.minX).toBeCloseTo(0);

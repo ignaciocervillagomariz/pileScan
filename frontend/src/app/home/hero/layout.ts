@@ -84,8 +84,13 @@ export function fitCamera(
 
 type CameraPose = Pick<CameraFit, 'viewport' | 'fovDeg' | 'tiltDeg' | 'distance'>;
 
-/** Where the ray through a hero pixel meets the ground (y = 0). */
-export function screenToGround(xPx: number, yPx: number, cam: CameraPose): { x: number; z: number } {
+/** Where the ray through a hero pixel meets the horizontal plane y = planeY (default: ground). */
+export function screenToGround(
+  xPx: number,
+  yPx: number,
+  cam: CameraPose,
+  planeY = 0,
+): { x: number; z: number } {
   const t = cam.tiltDeg * DEG;
   const c = Math.cos(t);
   const s = Math.sin(t);
@@ -100,7 +105,7 @@ export function screenToGround(xPx: number, yPx: number, cam: CameraPose): { x: 
     y: -c + ny * tanV * s,
     z: -s - ny * tanV * c,
   };
-  const lambda = -origin.y / dir.y;
+  const lambda = (planeY - origin.y) / dir.y;
   return { x: lambda * dir.x, z: origin.z + lambda * dir.z };
 }
 

@@ -15,10 +15,12 @@ import {
   pixelRectToGround,
   playArea,
   pushOut,
+  screenToGround,
   wallLayout,
 } from './layout';
 import { yieldToMain } from './perf';
 import { Physics } from './physics';
+import { attachPointerInput } from './pointer-input';
 import { QualityTier, TIERS } from './quality';
 import { HeroScene, Theme } from './scene';
 
@@ -167,7 +169,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
         `${nextSpawn} bricks · ${redrops} redrops`;
     }
 
-    const resting = nextSpawn >= plan.length && physics.isResting();
+    // While pushing, keep stepping even if every brick sleeps: the pusher is on its way to them.
+    const resting = nextSpawn >= plan.length && !physics.pushing && physics.isResting();
     setActivity(resting ? 'resting' : 'moving');
     // Render on demand: stop once everything sleeps (debug mode keeps measuring).
     if (!resting || hud) schedule();
@@ -247,6 +250,20 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     wake();
   };
   darkQuery.addEventListener('change', onTheme);
+  const detachPointer = attachPointerInput({
+    canvas: els.canvas,
+    toGround: (xPx, yPx) => (fit ? screenToGround(xPx, yPx, fit, Physics.PUSHER_Y) : null),
+    pushEnabled: true,
+    onChange: (state, ground) => {
+      if (state.kind === 'push' && ground) {
+        physics.setPusher(ground);
+        setActivity('moving');
+        wake();
+      } else {
+        physics.setPusher(null);
+      }
+    },
+  });
   layout();
   await scene.precompile();
   ready = true;
@@ -256,6 +273,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     replay: startCascade,
     dispose() {
       cancelAnimationFrame(frame);
+      detachPointer();
       resizeObserver.disconnect();
       intersection.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);

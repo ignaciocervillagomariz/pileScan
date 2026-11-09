@@ -4,7 +4,7 @@
  */
 import * as RAPIER from '@dimforge/rapier3d';
 import { BrickShape } from './catalog';
-import { DIMENSIONS, PHYSICS } from './config';
+import { DIMENSIONS, PHYSICS, PUSH } from './config';
 import { Cuboid } from './layout';
 import { Quat, Vec3 } from './pose';
 
@@ -24,10 +24,17 @@ export interface BrickSpawn {
 /** Thick enough that nothing tunnels through it, wide enough for any screen. */
 const FLOOR = { halfSize: 500, halfThickness: 1 } as const;
 
+/** Where the pusher waits, far below the floor, while nobody pushes. */
+const PARKED = { x: 0, y: -100, z: 0 } as const;
+
 export class Physics {
   private readonly world: RAPIER.World;
   private readonly bricks = new Map<number, RAPIER.RigidBody>();
   private walls: RAPIER.RigidBody[] = [];
+  /** Kinematic capsule that follows a fast pointer; real contacts do the pushing. */
+  private readonly pusher: RAPIER.RigidBody;
+  private readonly pusherCollider: RAPIER.Collider;
+  private pusherTarget: { x: number; z: number } | null = null;
 
   constructor(gravity: number) {
     this.world = new RAPIER.World({ x: 0, y: -gravity, z: 0 });
@@ -41,6 +48,52 @@ export class Physics {
         .setRestitution(PHYSICS.restitution),
       floor,
     );
+    this.pusher = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(PARKED.x, PARKED.y, PARKED.z),
+    );
+    this.pusherCollider = this.world.createCollider(
+      RAPIER.ColliderDesc.capsule(PUSH.halfHeight, PUSH.radius).setFriction(0.3).setEnabled(false),
+      this.pusher,
+    );
+  }
+
+  /** Centre height of the pusher: its straight part spans y = 0 to a brick's height. */
+  static readonly PUSHER_Y = PUSH.halfHeight;
+
+  get pushing(): boolean {
+    return this.pusherTarget !== null;
+  }
+
+  /**
+   * Starts, moves or (with null) stops the pusher. When it starts it is teleported to the
+   * pointer, so it never sweeps across the table from where it was parked.
+   */
+  setPusher(target: { x: number; z: number } | null): void {
+    if (target === null) {
+      if (this.pusherTarget === null) return;
+      this.pusherTarget = null;
+      this.pusherCollider.setEnabled(false);
+      this.pusher.setTranslation(PARKED, false);
+      return;
+    }
+    if (this.pusherTarget === null) {
+      this.pusher.setTranslation({ x: target.x, y: Physics.PUSHER_Y, z: target.z }, true);
+      this.pusherCollider.setEnabled(true);
+    }
+    this.pusherTarget = target;
+  }
+
+  /** Moves the pusher toward its target, capped so a flick can't launch bricks. */
+  private advancePusher(): void {
+    const target = this.pusherTarget;
+    if (!target) return;
+    const p = this.pusher.translation();
+    const dx = target.x - p.x;
+    const dz = target.z - p.z;
+    const distance = Math.hypot(dx, dz);
+    const maxStep = PUSH.maxSpeed * PHYSICS.step;
+    const k = distance > maxStep ? maxStep / distance : 1;
+    this.pusher.setNextKinematicTranslation({ x: p.x + dx * k, y: Physics.PUSHER_Y, z: p.z + dz * k });
   }
 
   setGravity(gravity: number): void {
@@ -93,6 +146,7 @@ export class Physics {
   }
 
   step(): void {
+    this.advancePusher();
     this.world.step();
     for (const body of this.bricks.values()) {
       if (body.isSleeping()) continue;

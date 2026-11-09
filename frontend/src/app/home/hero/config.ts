@@ -71,8 +71,11 @@ export const MATERIAL = {
 } as const;
 
 export const WALLS = {
-  /** Gap between the visible edge and the wall's inner face, in studs. */
-  inset: 0.4,
+  /**
+   * Gap between the visible edge and the wall's inner face, in studs. Larger than a brick's
+   * half-height so perspective never pushes a brick's top face past the screen edge.
+   */
+  inset: 1,
   thickness: 2,
   /** Free space kept around the text card. */
   cardMargin: 0.8,
@@ -122,4 +125,23 @@ export const CASCADE = {
 export const ADAPTIVE = {
   warmupFrames: 45,
   minFps: 48,
+} as const;
+
+/**
+ * Pushing with a fast pointer. Speeds are in studs per second over the ground (on a laptop one
+ * stud is ~28 px, so 20 studs/s is ~560 px/s: a deliberate flick, not a casual move).
+ */
+export const PUSH = {
+  /** Smoothing of the pointer speed: time constant of the exponential moving average. */
+  speedTauMs: 60,
+  /** Hysteresis: start pushing above `enterSpeed`, stop below `exitSpeed`. */
+  enterSpeed: 20,
+  exitSpeed: 9,
+  /** Ignore samples further apart than this (pointer re-entering, a stalled tab). */
+  maxSampleGapMs: 120,
+  /** The pusher is a vertical capsule whose straight part spans a brick's full height. */
+  radius: 0.6,
+  halfHeight: 0.6,
+  /** The pusher chases the pointer at most this fast, so a flick can't launch bricks. */
+  maxSpeed: 55,
 } as const;
