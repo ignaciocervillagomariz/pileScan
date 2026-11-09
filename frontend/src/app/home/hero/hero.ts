@@ -300,7 +300,9 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     );
     physics.setPusher(report.state.kind === 'pushing' ? onPlane : null);
     updateExclusions();
-    if (ambient && report.position) {
+    liftCenter = null;
+    if (!report.hovers) scene.setParallaxTarget(0, 0);
+    if (ambient && report.hovers && report.position) {
       const { widthPx, heightPx } = fit.viewport;
       const a = parallaxAngles((report.position.x / widthPx) * 2 - 1, (report.position.y / heightPx) * 2 - 1);
       scene.setParallaxTarget(a.yaw, a.pitch);

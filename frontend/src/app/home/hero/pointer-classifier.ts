@@ -58,3 +58,12 @@ export function classifyMotion(
   const threshold = previous === 'moving' ? cfg.deadZonePxPerS * cfg.deadZoneExitShare : cfg.deadZonePxPerS;
   return speedPxPerS > threshold ? 'moving' : 'still';
 }
+
+/** What a touch gesture is for: undecided inside the slop, then a sideways push or a scroll. */
+export type TouchIntent = 'undecided' | 'push' | 'scroll';
+
+/** Mostly vertical means scroll (the browser handles it, touch-action: pan-y); sideways pushes. */
+export function touchIntent(dx: number, dy: number, cfg: Pick<typeof PUSH, 'touchSlopPx'> = PUSH): TouchIntent {
+  if (Math.hypot(dx, dy) < cfg.touchSlopPx) return 'undecided';
+  return Math.abs(dx) > Math.abs(dy) ? 'push' : 'scroll';
+}

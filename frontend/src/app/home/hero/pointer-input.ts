@@ -8,13 +8,15 @@
  */
 import { PUSH } from './config';
 import { AWAY, InteractionState, transition } from './interaction';
-import { classifyMotion, Motion, PointerSpeed } from './pointer-classifier';
+import { classifyMotion, Motion, PointerSpeed, TouchIntent, touchIntent } from './pointer-classifier';
 
 export interface PointerReport {
   readonly state: InteractionState;
   /** Canvas-relative CSS pixels; null while away. */
   readonly position: { readonly x: number; readonly y: number } | null;
   readonly speedPxPerS: number;
+  /** Touch has no hover: the ambient hover hints (parallax, lift) only follow mouse and pen. */
+  readonly hovers: boolean;
 }
 
 /** Input diagnostics for the ?debug=1 overlay. */
@@ -43,10 +45,18 @@ export function attachPointerInput(
   let pausedUntil = 0;
   let pointerType = '-';
   let samplesPerEvent = 1;
+  /** Touch only: where the finger went down, and what the gesture turned out to be. */
+  let touchStart: { x: number; y: number } | null = null;
+  let intent: TouchIntent = 'undecided';
 
   const report = (next: InteractionState) => {
     state = next;
-    options.onReport({ state, position: state.kind === 'away' ? null : position, speedPxPerS: speed.speed });
+    options.onReport({
+      state,
+      position: state.kind === 'away' ? null : position,
+      speedPxPerS: speed.speed,
+      hovers: pointerType !== 'touch',
+    });
   };
   const apply = (event: Parameters<typeof transition>[1]) =>
     report(transition(state, event, { pushEnabled: options.pushEnabled }));
@@ -58,9 +68,20 @@ export function attachPointerInput(
     if (state.kind !== 'away') apply({ type: 'move', motion });
   };
 
+  const onDown = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    touchStart = { x: e.clientX, y: e.clientY };
+    intent = 'undecided';
+  };
+
   const onMove = (e: PointerEvent) => {
     if (e.timeStamp < pausedUntil) return;
     pointerType = e.pointerType;
+    if (e.pointerType === 'touch' && touchStart) {
+      if (intent === 'undecided') intent = touchIntent(e.clientX - touchStart.x, e.clientY - touchStart.y);
+      // Until the gesture is clearly sideways, leave it to the browser (it may become a scroll).
+      if (intent !== 'push') return;
+    }
     const rect = canvas.getBoundingClientRect();
     const coalesced = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
     const samples = coalesced.length > 0 ? coalesced : [e];
@@ -78,6 +99,8 @@ export function attachPointerInput(
 
   const end = (type: 'leave' | 'cancel') => {
     clearTimeout(stillTimer);
+    touchStart = null;
+    intent = 'undecided';
     speed.reset();
     motion = 'still';
     apply({ type });
@@ -93,6 +116,7 @@ export function attachPointerInput(
     if (state.kind !== 'away') end('cancel');
   };
 
+  canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('pointercancel', onCancel);
@@ -104,6 +128,7 @@ export function attachPointerInput(
     stats: () => ({ pointerType, eventsPerSecond: eventTimes.length, samplesPerEvent }),
     detach() {
       clearTimeout(stillTimer);
+      canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('pointercancel', onCancel);

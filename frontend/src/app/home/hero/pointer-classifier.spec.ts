@@ -1,5 +1,5 @@
 import { PUSH } from './config';
-import { classifyMotion, Motion, PointerSample, PointerSpeed } from './pointer-classifier';
+import { classifyMotion, Motion, PointerSample, PointerSpeed, touchIntent } from './pointer-classifier';
 import { createRandom } from './random';
 
 /**
@@ -98,5 +98,20 @@ describe('dead zone with hysteresis', () => {
     expect(classifyMotion('still', PUSH.deadZonePxPerS - 1)).toBe('still');
     expect(classifyMotion('moving', (PUSH.deadZonePxPerS + exit) / 2)).toBe('moving');
     expect(classifyMotion('moving', exit - 1)).toBe('still');
+  });
+});
+
+describe('touch intent', () => {
+  it('stays undecided inside the touch slop, so the first moves of a scroll never push', () => {
+    expect(touchIntent(3, -5)).toBe('undecided');
+  });
+
+  it('a mostly vertical gesture is a scroll, a mostly sideways one pushes', () => {
+    expect(touchIntent(4, -25)).toBe('scroll');
+    expect(touchIntent(25, 6)).toBe('push');
+  });
+
+  it('decides as soon as the finger leaves the slop', () => {
+    expect(touchIntent(PUSH.touchSlopPx, 0)).toBe('push');
   });
 });

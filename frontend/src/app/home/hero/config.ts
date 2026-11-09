@@ -145,6 +145,11 @@ export const PUSH = {
   hoverMaxPxPerS: 400,
   /** Samples further apart than this mean the pointer stopped (or left and came back). */
   maxSampleGapMs: 120,
+  /**
+   * Touch: a gesture pushes only once it has moved this far, mostly sideways. Before that the
+   * browser may still turn it into a scroll, and early moves would push bricks by mistake.
+   */
+  touchSlopPx: 8,
   /** After the page scrolls, ignore the pointer this long (the canvas moved under it). */
   scrollPauseMs: 200,
   /** The pusher is a vertical capsule whose straight part spans a brick's full height. */
