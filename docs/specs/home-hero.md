@@ -23,6 +23,10 @@ Status: plan approved 2026-11-08. Owner of the implementation: single frontend s
   surface; the warm charcoal stays for dark mode. The camera is tilted 7° from straight down.
   Studs on white and light grey bricks get a baked contact shade (a halo on the top face),
   with exposure 0.88 and a slightly off-white White so the shading does not clip.
+- **Phase 2 review (2026-11-09):** mobile Lighthouse on home is accepted at 84 (baseline 92 on
+  the old capture page; desktop stays 100). The remaining blocking time is the environment-map
+  bake, Rapier's first step (lazy wasm compilation) and chunk evaluation, all after first paint;
+  LCP stays the headline. Devices with software WebGL get the static surface.
 - **Lifted-brick shadow:** the held brick leaves the shadow map and gets a blob shadow whose
   size, softness and offset scale with height.
 
