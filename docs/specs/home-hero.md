@@ -27,6 +27,17 @@ Status: plan approved 2026-11-08. Owner of the implementation: single frontend s
   the old capture page; desktop stays 100). The remaining blocking time is the environment-map
   bake, Rapier's first step (lazy wasm compilation) and chunk evaluation, all after first paint;
   LCP stays the headline. Devices with software WebGL get the static surface.
+- **Phase 3 review (2026-11-09): "pushing doesn't work" on the owner's machine.** Root
+  cause: `127.0.0.1:4200` served a frontend image built before the push commit (`e2b6e47`),
+  because the stack was restored with `docker compose up` without `--build`; the verification
+  had run against a separate static server, not that URL. The service worker would also have
+  kept serving the cached build until a reload. Since then every build carries a stamp
+  (commit + time) in the console and in the `?debug=1` overlay, and verification runs against
+  the URL the owner uses.
+- **Debug overlay (`?debug=1`):** build stamp, hero state and fallback reason, quality tier,
+  reduced motion, fps, pointer speed (px/s) and state, input rate and coalesced samples per
+  event, pusher position (also drawn in the scene), hover candidate, element under the pointer,
+  device pixel ratio.
 - **Lifted-brick shadow:** the held brick leaves the shadow map and gets a blob shadow whose
   size, softness and offset scale with height.
 
@@ -63,9 +74,25 @@ fast and playful, and lead to a "Scan your pile" call to action.
    Invisible walls at the viewport edges keep them in view and update on resize.
 2. Settled view: top-down. The camera points straight down with a narrow perspective FOV
    (~30°) so height reads as depth. Show a 5–10° tilt as an alternative.
-3. Push: moving the pointer FAST pushes bricks. A kinematic collider follows the pointer and
-   real collisions do the rest, so bricks slide, spin and can flip. Moving SLOWLY never
-   pushes.
+3. Push (revised 2026-11-09, replaces the fast/slow split): any pointer movement over the
+   scene pushes. A kinematic capsule follows the pointer and real collisions do the rest, so
+   bricks slide, spin and can flip; the strength comes from the pointer's speed (slow moves
+   nudge, fast moves shove).
+   - A small dead zone (~60 px/s, with hysteresis) lets the cursor rest on a brick.
+   - Bricks must not flee from the cursor: under a slow pointer (≤ ~400 px/s) the brick under
+     the cursor, or else the nearest brick the capsule already touches, ignores the pusher
+     (collision groups). It is the hover/grab candidate for phase 4. It stays excluded until
+     the capsule no longer overlaps it.
+   - Pointer speeds are in CSS px/s (they describe the hand, so they need no viewport
+     scaling); the pusher speed is in studs/s, which already scales with the viewport.
+   - Touch: horizontal swipes push, vertical swipes scroll. All interaction pauses while the
+     page scrolls (the canvas moves under a still cursor) or the hero is off-screen.
+   - Ambient life, none of it with prefers-reduced-motion, all with render on demand:
+     1. Parallax: the camera orbits up to 1.5° toward the pointer (walls and the card
+        keep-out move in by the resulting shift).
+     2. Resting bricks near the cursor lift up to 1.5 mm and settle back (visual only).
+     3. Optional, off by default (`AMBIENT.idleDrop`): after ~10 s without interaction, one
+        brick drops in, at most every 12 s.
 4. Grab:
    - Hovering a brick slowly highlights it (subtle outline, `cursor: grab`).
    - Pressing on a brick picks it up. It becomes kinematic, rises toward the camera with an
