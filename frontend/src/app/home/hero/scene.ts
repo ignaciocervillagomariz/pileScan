@@ -3,28 +3,33 @@
  * vignette) is CSS behind a transparent canvas, so the fallback and the 3D scene look the same.
  */
 import {
+  CapsuleGeometry,
   Color,
   DirectionalLight,
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   NeutralToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
   Quaternion,
+  Raycaster,
   Scene,
   ShadowMaterial,
+  Vector2,
   Vector3,
   WebGLRenderer,
   type BufferGeometry,
   type MeshPhysicalMaterial,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { approach, settled } from './ambient';
 import { buildShapeGeometry, createBrickMaterial } from './bricks';
 import { PALETTE, SHAPES } from './catalog';
-import { CAMERA, LIGHTING } from './config';
+import { AMBIENT, CAMERA, LIGHTING, PUSH } from './config';
 import { CameraFit, fitCamera, Viewport } from './layout';
 import { measure, measureAsync } from './perf';
 import { Quat, Vec3 } from './pose';
@@ -69,6 +74,14 @@ export class HeroScene {
   private readonly unitScale = new Vector3(1, 1, 1);
   private readonly studSegments: number;
   private rendered = false;
+  private fit: CameraFit | null = null;
+  /** Current and target camera orbit offsets (radians) for the pointer parallax. */
+  private parallax = { yaw: 0, pitch: 0 };
+  private parallaxTarget = { yaw: 0, pitch: 0 };
+  private readonly raycaster = new Raycaster();
+  private readonly ndc = new Vector2();
+  /** ?debug=1 only: wireframe of the pusher capsule. */
+  private debugPusher: Mesh | null = null;
 
   constructor(canvas: HTMLCanvasElement, options: SceneOptions) {
     const { tier } = options;
@@ -152,11 +165,8 @@ export class HeroScene {
     this.camera.aspect = viewport.widthPx / viewport.heightPx;
 
     const fit = fitCamera(viewport, CAMERA.fovDeg, CAMERA.tiltDeg);
-    const tilt = (fit.tiltDeg * Math.PI) / 180;
-    this.camera.position.set(0, fit.distance * Math.cos(tilt), fit.distance * Math.sin(tilt));
-    // Screen up is -Z, so the ground's +Z axis points down the screen (same pose as layout.ts).
-    this.camera.up.set(0, 0, -1);
-    this.camera.lookAt(0, 0, 0);
+    this.fit = fit;
+    this.placeCamera();
     this.camera.updateProjectionMatrix();
 
     const { ground } = fit;
@@ -179,6 +189,61 @@ export class HeroScene {
     shadowCam.far = reach * 4;
     shadowCam.updateProjectionMatrix();
     return fit;
+  }
+
+  /**
+   * The layout.ts pose (tilted, looking at the origin, screen-up = -Z), orbited by the parallax
+   * offsets: yaw swings the camera sideways, pitch adds to the tilt.
+   */
+  private placeCamera(): void {
+    if (!this.fit) return;
+    const d = this.fit.distance;
+    const tilt = (this.fit.tiltDeg * Math.PI) / 180 + this.parallax.pitch;
+    const yaw = this.parallax.yaw;
+    this.camera.position.set(d * Math.sin(yaw), d * Math.cos(yaw) * Math.cos(tilt), d * Math.cos(yaw) * Math.sin(tilt));
+    this.camera.up.set(0, 0, -1);
+    this.camera.lookAt(0, 0, 0);
+  }
+
+  /** Sets where the parallax should ease to (radians); see ambient.ts. */
+  setParallaxTarget(yaw: number, pitch: number): void {
+    this.parallaxTarget = { yaw, pitch };
+  }
+
+  /** Eases the camera toward its parallax target. Returns true while still moving. */
+  updateParallax(dtSeconds: number): boolean {
+    const t = this.parallaxTarget;
+    const moving = !settled(this.parallax.yaw, t.yaw, 1e-5) || !settled(this.parallax.pitch, t.pitch, 1e-5);
+    if (!moving) return false;
+    this.parallax = {
+      yaw: approach(this.parallax.yaw, t.yaw, AMBIENT.parallaxRate, dtSeconds),
+      pitch: approach(this.parallax.pitch, t.pitch, AMBIENT.parallaxRate, dtSeconds),
+    };
+    this.placeCamera();
+    return true;
+  }
+
+  /** The ray from the camera through a canvas pixel, with the camera as it is now. */
+  rayAt(xPx: number, yPx: number): { origin: Vec3; direction: Vec3 } | null {
+    if (!this.fit) return null;
+    const { widthPx, heightPx } = this.fit.viewport;
+    this.ndc.set((xPx / widthPx) * 2 - 1, 1 - (yPx / heightPx) * 2);
+    this.raycaster.setFromCamera(this.ndc, this.camera);
+    const { origin, direction } = this.raycaster.ray;
+    return { origin: { x: origin.x, y: origin.y, z: origin.z }, direction: { x: direction.x, y: direction.y, z: direction.z } };
+  }
+
+  /** ?debug=1: shows the pusher capsule where physics has it (null hides it). */
+  setDebugPusher(position: { x: number; y: number; z: number } | null): void {
+    if (!this.debugPusher) {
+      this.debugPusher = new Mesh(
+        new CapsuleGeometry(PUSH.radius, PUSH.halfHeight * 2, 4, 12),
+        new MeshBasicMaterial({ color: 0xe11d48, wireframe: true, transparent: true, opacity: 0.8 }),
+      );
+      this.scene.add(this.debugPusher);
+    }
+    this.debugPusher.visible = position !== null;
+    if (position) this.debugPusher.position.set(position.x, position.y, position.z);
   }
 
   setTheme(theme: Theme): void {
@@ -227,10 +292,11 @@ export class HeroScene {
     }
   }
 
-  setPose(id: number, position: Vec3, rotation: Quat): void {
+  /** `lift` raises the brick visually only (the ambient hover hint); physics is unaffected. */
+  setPose(id: number, position: Vec3, rotation: Quat, lift = 0): void {
     const slot = this.slots[id];
     if (!slot) return;
-    this.position.set(position.x, position.y, position.z);
+    this.position.set(position.x, position.y + lift, position.z);
     this.rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
     slot.mesh.setMatrixAt(slot.index, this.matrix.compose(this.position, this.rotation, this.unitScale));
     this.dirty.add(slot.mesh);
@@ -252,6 +318,10 @@ export class HeroScene {
     for (const geometry of this.geometries.values()) geometry.dispose();
     this.material.dispose();
     this.groundMaterial.dispose();
+    if (this.debugPusher) {
+      this.debugPusher.geometry.dispose();
+      (this.debugPusher.material as MeshBasicMaterial).dispose();
+    }
     this.ground.geometry.dispose();
     this.scene.environment?.dispose();
     this.keyLight.shadow.dispose();

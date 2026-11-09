@@ -1,71 +1,102 @@
 import { PUSH } from './config';
-import { classifyMotion, GroundSample, Motion, PointerSpeed } from './pointer-classifier';
+import { classifyMotion, Motion, PointerSample, PointerSpeed } from './pointer-classifier';
+import { createRandom } from './random';
 
-/** Samples every 16 ms moving along X at `studsPerSecond`. */
-function sweep(studsPerSecond: number, frames: number, start = 0): GroundSample[] {
-  return Array.from({ length: frames }, (_, i) => ({
-    x: (studsPerSecond * (i * 16)) / 1000,
-    z: 0,
-    timeMs: start + i * 16,
-  }));
+/**
+ * A realistic pointer stream: small steps at the display's event rate (60 or 120 Hz), with a
+ * little timing jitter, along a gentle curve. Real trackpads and mice deliver this, not the
+ * large jumps of synthetic test input.
+ */
+function stream(opts: { pxPerSecond: number; hz: number; seconds: number; seed?: number; tremorPx?: number }): PointerSample[] {
+  const random = createRandom(opts.seed ?? 1);
+  const samples: PointerSample[] = [];
+  let t = 0;
+  let x = 400;
+  let y = 300;
+  let heading = 0;
+  const period = 1000 / opts.hz;
+  while (t <= opts.seconds * 1000) {
+    const dt = period * (0.9 + random() * 0.2);
+    heading += (random() - 0.5) * 0.1;
+    x += Math.cos(heading) * opts.pxPerSecond * (dt / 1000);
+    y += Math.sin(heading) * opts.pxPerSecond * (dt / 1000);
+    const tremor = opts.tremorPx ?? 0;
+    samples.push({ x: x + (random() - 0.5) * tremor, y: y + (random() - 0.5) * tremor, timeMs: t });
+    t += dt;
+  }
+  return samples;
 }
 
-/** Feeds samples through speed + hysteresis, as the DOM adapter does. */
-function run(samples: GroundSample[], speed = new PointerSpeed(), motion: Motion = 'slow'): Motion[] {
-  return samples.map((s) => (motion = classifyMotion(motion, speed.add(s))));
+function classify(samples: PointerSample[]): { motions: Motion[]; speeds: number[] } {
+  const speed = new PointerSpeed();
+  let motion: Motion = 'still';
+  const motions: Motion[] = [];
+  const speeds: number[] = [];
+  for (const s of samples) {
+    speeds.push(speed.add(s));
+    motion = classifyMotion(motion, speed.speed);
+    motions.push(motion);
+  }
+  return { motions, speeds };
 }
 
-describe('PointerSpeed', () => {
-  it('converges on the true ground speed', () => {
-    const speed = new PointerSpeed();
-    sweep(30, 30).forEach((s) => speed.add(s));
-    expect(speed.speed).toBeCloseTo(30, 0);
+describe('pointer speed on realistic input', () => {
+  for (const hz of [60, 120]) {
+    it(`measures a normal 300 px/s trackpad move at ${hz} Hz (steps of ${(300 / hz).toFixed(1)} px)`, () => {
+      const { speeds } = classify(stream({ pxPerSecond: 300, hz, seconds: 0.5 }));
+      expect(speeds[speeds.length - 1]).toBeGreaterThan(270);
+      expect(speeds[speeds.length - 1]).toBeLessThan(330);
+    });
+
+    it(`starts pushing within ~50 ms of a normal move at ${hz} Hz`, () => {
+      const samples = stream({ pxPerSecond: 300, hz, seconds: 0.3 });
+      const { motions } = classify(samples);
+      const first = motions.indexOf('moving');
+      expect(first).toBeGreaterThan(0);
+      expect(samples[first].timeMs).toBeLessThan(50);
+    });
+  }
+
+  it('pushes even on a slow drift just above the dead zone (no fast/slow split any more)', () => {
+    const { motions } = classify(stream({ pxPerSecond: PUSH.deadZonePxPerS * 1.6, hz: 60, seconds: 1 }));
+    expect(motions.slice(-30).every((m) => m === 'moving')).toBe(true);
   });
 
+  it('a resting hand (sub-pixel tremor, no real movement) stays in the dead zone', () => {
+    const { motions } = classify(stream({ pxPerSecond: 0, hz: 120, seconds: 2, tremorPx: 0.3 }));
+    expect(motions).not.toContain('moving');
+  });
+
+  it('coalesced 120 Hz samples inside 60 Hz events give the same speed as the plain stream', () => {
+    const fine = stream({ pxPerSecond: 500, hz: 120, seconds: 0.5, seed: 3 });
+    const coarse = fine.filter((_, i) => i % 2 === 0);
+    const a = classify(fine).speeds.at(-1) ?? 0;
+    const b = classify(coarse).speeds.at(-1) ?? 0;
+    expect(Math.abs(a - b) / a).toBeLessThan(0.1);
+  });
+});
+
+describe('PointerSpeed edge cases', () => {
   it('starts over after a gap instead of averaging a jump', () => {
     const speed = new PointerSpeed();
-    speed.add({ x: 0, z: 0, timeMs: 0 });
-    speed.add({ x: 40, z: 0, timeMs: PUSH.maxSampleGapMs + 1 });
+    speed.add({ x: 0, y: 0, timeMs: 0 });
+    speed.add({ x: 800, y: 0, timeMs: PUSH.maxSampleGapMs + 1 });
     expect(speed.speed).toBe(0);
   });
 
   it('ignores duplicate timestamps', () => {
     const speed = new PointerSpeed();
-    speed.add({ x: 0, z: 0, timeMs: 10 });
-    expect(speed.add({ x: 5, z: 0, timeMs: 10 })).toBe(0);
+    speed.add({ x: 0, y: 0, timeMs: 10 });
+    expect(speed.add({ x: 5, y: 0, timeMs: 10 })).toBe(0);
   });
 });
 
-describe('push vs slow classification', () => {
-  it('never pushes while the pointer moves slowly, however long it moves', () => {
-    expect(run(sweep(PUSH.enterSpeed * 0.9, 200))).not.toContain('fast');
-  });
-
-  it('pushes on a fast flick within a few frames', () => {
-    const motions = run(sweep(PUSH.enterSpeed * 2, 10));
-    expect(motions.indexOf('fast')).toBeGreaterThan(0);
-    expect(motions.indexOf('fast')).toBeLessThan(6);
-  });
-
-  it('a single jittery sample does not trigger a push (the average smooths it)', () => {
-    const samples = sweep(3, 10);
-    samples[5] = { ...samples[5], x: samples[5].x + 0.6 };
-    expect(run(samples)).not.toContain('fast');
-  });
-
-  it('keeps pushing while a swipe slows down between the thresholds (hysteresis)', () => {
-    const speed = new PointerSpeed();
-    const fast = run(sweep(PUSH.enterSpeed * 2, 15), speed);
-    expect(fast[fast.length - 1]).toBe('fast');
-    const middle = (PUSH.enterSpeed + PUSH.exitSpeed) / 2;
-    const slowing = run(sweep(middle, 30, 15 * 16), speed, 'fast');
-    expect(slowing.every((m) => m === 'fast')).toBe(true);
-  });
-
-  it('stops pushing once the pointer drops below the exit speed', () => {
-    const speed = new PointerSpeed();
-    run(sweep(PUSH.enterSpeed * 2, 15), speed);
-    const after = run(sweep(PUSH.exitSpeed * 0.3, 40, 15 * 16), speed, 'fast');
-    expect(after[after.length - 1]).toBe('slow');
+describe('dead zone with hysteresis', () => {
+  it('enters above the dead zone and leaves only below the lower exit threshold', () => {
+    const exit = PUSH.deadZonePxPerS * PUSH.deadZoneExitShare;
+    expect(classifyMotion('still', PUSH.deadZonePxPerS + 1)).toBe('moving');
+    expect(classifyMotion('still', PUSH.deadZonePxPerS - 1)).toBe('still');
+    expect(classifyMotion('moving', (PUSH.deadZonePxPerS + exit) / 2)).toBe('moving');
+    expect(classifyMotion('moving', exit - 1)).toBe('still');
   });
 });

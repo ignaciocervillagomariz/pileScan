@@ -1,6 +1,7 @@
 import {
   afterNextRender,
   Component,
+  computed,
   ElementRef,
   OnDestroy,
   signal,
@@ -8,15 +9,18 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonContent } from '@ionic/angular';
+import { BUILD_STAMP } from '../../build-info';
 import { AppFooter } from '../shared/ui/app-footer.component';
+import { DebugOverlay, DebugRow } from './debug-overlay.component';
 import {
+  prefersReducedMotion,
   readConnection,
   readQualitySignals,
   supportsHardwareWebGL2,
 } from './hero/capabilities';
-import { readHeroDebugParams } from './hero/debug-params';
+import { isDebugRequested } from './hero/debug-params';
+import type { HeroActivity, HeroDebugInfo, HeroHandle } from './hero/hero';
 import { measureAsync } from './hero/perf';
-import type { HeroActivity, HeroHandle } from './hero/hero';
 import { connectionAllows3d, pickTier } from './hero/quality';
 
 /**
@@ -27,9 +31,12 @@ import { connectionAllows3d, pickTier } from './hero/quality';
  */
 export type HeroState = 'static' | 'loading' | 'live' | 'fallback';
 
+/** Why the hero shows the static surface (debug overlay). */
+type FallbackReason = 'low tier' | 'slow or metered connection' | 'no hardware WebGL2' | 'load failed';
+
 @Component({
   selector: 'app-home-page',
-  imports: [IonContent, RouterLink, AppFooter],
+  imports: [IonContent, RouterLink, AppFooter, DebugOverlay],
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
 })
@@ -41,7 +48,40 @@ export class HomePage implements OnDestroy {
   protected readonly heroState = signal<HeroState>('static');
   /** `moving` during the cascade or a push, `resting` once every brick sleeps. */
   protected readonly heroActivity = signal<HeroActivity | null>(null);
-  protected readonly debugParams = readHeroDebugParams(window.location.search);
+  protected readonly debug = isDebugRequested(window.location.search);
+  private readonly reducedMotion = prefersReducedMotion(window);
+  private readonly tierName = signal('-');
+  private readonly fallbackReason = signal<FallbackReason | null>(null);
+  private readonly debugInfo = signal<HeroDebugInfo | null>(null);
+  private readonly elementUnderPointer = signal('-');
+
+  protected readonly debugRows = computed<DebugRow[]>(() => {
+    const d = this.debugInfo();
+    const px = (n: number) => `${Math.round(n)} px/s`;
+    return [
+      { label: 'build', value: BUILD_STAMP },
+      { label: 'hero', value: `${this.heroState()} · ${this.heroActivity() ?? '-'}` },
+      { label: 'fallback', value: this.fallbackReason() ?? 'no' },
+      { label: 'tier', value: d?.tier ?? this.tierName() },
+      { label: 'reduced motion', value: this.reducedMotion ? 'yes' : 'no' },
+      { label: 'fps', value: d ? `${d.fps.toFixed(0)} · p95 ${d.p95Ms.toFixed(1)} ms` : '-' },
+      { label: 'bricks', value: d ? `${d.bricks} · redrops ${d.redrops}` : '-' },
+      { label: 'pointer', value: d ? `${d.pointerState} · ${px(d.speedPxPerS)}` : '-' },
+      {
+        label: 'input',
+        value: d ? `${d.input.pointerType} · ${d.input.eventsPerSecond} ev/s · ${d.input.samplesPerEvent}/ev` : '-',
+      },
+      { label: 'pusher', value: d?.pusher ? `on at ${d.pusher.x.toFixed(1)}, ${d.pusher.z.toFixed(1)}` : 'off' },
+      {
+        label: 'hover',
+        value: d
+          ? `${d.hovered ? `#${d.hovered.id} at ${d.hovered.x.toFixed(2)}, ${d.hovered.z.toFixed(2)}` : '-'} · ignoring pusher ${d.excluded}`
+          : '-',
+      },
+      { label: 'under pointer', value: this.elementUnderPointer() },
+      { label: 'dpr', value: String(window.devicePixelRatio) },
+    ];
+  });
 
   private hero: HeroHandle | null = null;
   private destroyed = false;
@@ -49,9 +89,11 @@ export class HomePage implements OnDestroy {
   constructor() {
     // The headline is the LCP element: request the 3D chunk only after first paint, when idle.
     afterNextRender(() => whenIdle(() => void this.startHero()));
+    if (this.debug) window.addEventListener('pointermove', this.trackElementUnderPointer, { passive: true });
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('pointermove', this.trackElementUnderPointer);
     this.destroyed = true;
     this.hero?.dispose();
     this.hero = null;
@@ -61,13 +103,24 @@ export class HomePage implements OnDestroy {
     this.hero?.replay();
   }
 
+  /** Debug: which element would receive a pointer event here (is the canvas really on top?). */
+  private readonly trackElementUnderPointer = (e: PointerEvent) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    this.elementUnderPointer.set(el ? describeElement(el) : '-');
+  };
+
+  private fallback(reason: FallbackReason): void {
+    this.fallbackReason.set(reason);
+    this.heroState.set('fallback');
+  }
+
   private async startHero(): Promise<void> {
     if (this.destroyed) return;
     const tier = pickTier(readQualitySignals(window));
-    if (!tier.render3d || !connectionAllows3d(readConnection(window)) || !supportsHardwareWebGL2(document)) {
-      this.heroState.set('fallback');
-      return;
-    }
+    this.tierName.set(tier.name);
+    if (!tier.render3d) return this.fallback('low tier');
+    if (!connectionAllows3d(readConnection(window))) return this.fallback('slow or metered connection');
+    if (!supportsHardwareWebGL2(document)) return this.fallback('no hardware WebGL2');
 
     this.heroState.set('loading');
     try {
@@ -81,8 +134,10 @@ export class HomePage implements OnDestroy {
         },
         {
           tier,
-          debug: this.debugParams.debug,
+          debug: this.debug,
+          reducedMotion: this.reducedMotion,
           onActivity: (activity) => this.heroActivity.set(activity),
+          onDebug: this.debug ? (info) => this.debugInfo.set(info) : undefined,
         },
       ));
       // The page may have been left while the scene was getting ready.
@@ -94,7 +149,7 @@ export class HomePage implements OnDestroy {
       this.heroState.set('live');
     } catch (error) {
       console.warn('Hero scene unavailable, showing the static surface.', error);
-      this.heroState.set('fallback');
+      this.fallback('load failed');
     }
   }
 }
@@ -105,4 +160,10 @@ function whenIdle(task: () => void): void {
   } else {
     setTimeout(task, 200);
   }
+}
+
+function describeElement(el: Element): string {
+  const testId = el.getAttribute('data-testid');
+  const cls = [...el.classList].slice(0, 2).map((c) => `.${c}`).join('');
+  return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls}${testId ? `[${testId}]` : ''}`;
 }

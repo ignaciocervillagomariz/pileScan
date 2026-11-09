@@ -1,25 +1,25 @@
-import { IDLE, transition } from './interaction';
+import { AWAY, transition } from './interaction';
 
 const on = { pushEnabled: true };
 
-describe('interaction reducer (push)', () => {
-  it('starts pushing on fast motion and stops on slow motion', () => {
-    const pushing = transition(IDLE, { type: 'move', motion: 'fast' }, on);
-    expect(pushing.kind).toBe('push');
-    expect(transition(pushing, { type: 'move', motion: 'slow' }, on).kind).toBe('idle');
+describe('interaction reducer', () => {
+  it('pushes on any movement outside the dead zone, rests inside it', () => {
+    expect(transition(AWAY, { type: 'move', motion: 'moving' }, on).kind).toBe('pushing');
+    expect(transition(AWAY, { type: 'move', motion: 'still' }, on).kind).toBe('resting');
   });
 
-  it('stays idle on slow motion', () => {
-    expect(transition(IDLE, { type: 'move', motion: 'slow' }, on)).toEqual(IDLE);
+  it('goes back to resting when the pointer stops, without leaving the scene', () => {
+    const pushing = transition(AWAY, { type: 'move', motion: 'moving' }, on);
+    expect(transition(pushing, { type: 'move', motion: 'still' }, on).kind).toBe('resting');
   });
 
-  it('stops pushing when the pointer leaves or the browser takes over the gesture', () => {
-    const pushing = transition(IDLE, { type: 'move', motion: 'fast' }, on);
-    expect(transition(pushing, { type: 'leave' }, on).kind).toBe('idle');
-    expect(transition(pushing, { type: 'cancel' }, on).kind).toBe('idle');
+  it('goes away when the pointer leaves, the browser takes the gesture, or the page scrolls', () => {
+    const pushing = transition(AWAY, { type: 'move', motion: 'moving' }, on);
+    expect(transition(pushing, { type: 'leave' }, on)).toEqual(AWAY);
+    expect(transition(pushing, { type: 'cancel' }, on)).toEqual(AWAY);
   });
 
-  it('never pushes when pushing is disabled (reduced motion)', () => {
-    expect(transition(IDLE, { type: 'move', motion: 'fast' }, { pushEnabled: false }).kind).toBe('idle');
+  it('never pushes when pushing is switched off', () => {
+    expect(transition(AWAY, { type: 'move', motion: 'moving' }, { pushEnabled: false }).kind).toBe('resting');
   });
 });

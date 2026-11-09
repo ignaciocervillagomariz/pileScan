@@ -1,11 +1,8 @@
 /**
- * Query parameters for measuring the hero. Harmless in production: `?hero-debug` renders
- * continuously and shows a frame-time HUD.
+ * `?debug=1` (or `?debug`): the hero's diagnostic overlay, plus continuous rendering so the
+ * frame timings are real. Harmless in production: it only adds a read-only panel.
  */
-export interface HeroDebugParams {
-  readonly debug: boolean;
-}
-
-export function readHeroDebugParams(search: string): HeroDebugParams {
-  return { debug: new URLSearchParams(search).has('hero-debug') };
+export function isDebugRequested(search: string): boolean {
+  const value = new URLSearchParams(search).get('debug');
+  return value !== null && value !== '0' && value !== 'false';
 }

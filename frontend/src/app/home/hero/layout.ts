@@ -142,9 +142,24 @@ export function contains(r: GroundRect, x: number, z: number): boolean {
   return x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
 }
 
-/** The area bricks may occupy: the visible ground minus a small margin. */
-export function playArea(ground: GroundRect, cfg = WALLS): GroundRect {
-  return inflate(ground, -cfg.inset);
+/**
+ * The area bricks may occupy: the visible ground minus a margin, plus `extraInset` for
+ * anything that can shift the view (the pointer parallax).
+ */
+export function playArea(ground: GroundRect, extraInset = 0, cfg = WALLS): GroundRect {
+  return inflate(ground, -(cfg.inset + extraInset));
+}
+
+/** Where a ray meets the horizontal plane y = planeY, or null if it never does. */
+export function rayToPlane(
+  origin: { x: number; y: number; z: number },
+  direction: { x: number; y: number; z: number },
+  planeY: number,
+): { x: number; z: number } | null {
+  if (Math.abs(direction.y) < 1e-9) return null;
+  const t = (planeY - origin.y) / direction.y;
+  if (t < 0) return null;
+  return { x: origin.x + direction.x * t, z: origin.z + direction.z * t };
 }
 
 /**

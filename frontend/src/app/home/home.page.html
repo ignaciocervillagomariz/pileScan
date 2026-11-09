@@ -29,6 +29,10 @@
         </button>
       }
 
+      @if (debug) {
+        <app-debug-overlay [rows]="debugRows()" />
+      }
+
       <div #card class="hero-card">
         <p class="brand">PileScan</p>
         <h1 id="home-headline" data-testid="home-headline">Which sets are hiding in your pile?</h1>

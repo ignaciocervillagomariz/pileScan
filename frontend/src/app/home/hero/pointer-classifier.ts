@@ -1,21 +1,23 @@
 /**
- * Pure pointer-speed classification: is the pointer moving fast enough to push bricks?
- * Speeds are measured on the ground plane, so the thresholds mean the same on every screen.
+ * Pure pointer-speed measurement and the dead-zone rule. Speeds are in CSS px/s: they describe
+ * the hand, so the same thresholds hold on every screen size.
  */
 import { PUSH } from './config';
 
-export interface GroundSample {
+export interface PointerSample {
+  /** CSS pixels relative to the canvas. */
   readonly x: number;
-  readonly z: number;
+  readonly y: number;
   /** Event timestamp in ms. */
   readonly timeMs: number;
 }
 
-export type Motion = 'slow' | 'fast';
+/** `still`: inside the dead zone (resting cursor). `moving`: anything faster pushes. */
+export type Motion = 'still' | 'moving';
 
-/** Exponential moving average of the pointer's ground speed, in studs per second. */
+/** Exponential moving average of the pointer speed, in px/s. */
 export class PointerSpeed {
-  private last: GroundSample | null = null;
+  private last: PointerSample | null = null;
   private value = 0;
 
   constructor(private readonly cfg: Pick<typeof PUSH, 'speedTauMs' | 'maxSampleGapMs'> = PUSH) {}
@@ -24,7 +26,7 @@ export class PointerSpeed {
     return this.value;
   }
 
-  add(sample: GroundSample): number {
+  add(sample: PointerSample): number {
     const last = this.last;
     this.last = sample;
     if (!last) return this.value;
@@ -35,7 +37,7 @@ export class PointerSpeed {
       this.value = 0;
       return this.value;
     }
-    const instant = (Math.hypot(sample.x - last.x, sample.z - last.z) / dtMs) * 1000;
+    const instant = (Math.hypot(sample.x - last.x, sample.y - last.y) / dtMs) * 1000;
     const alpha = 1 - Math.exp(-dtMs / this.cfg.speedTauMs);
     this.value += alpha * (instant - this.value);
     return this.value;
@@ -47,15 +49,12 @@ export class PointerSpeed {
   }
 }
 
-/**
- * Hysteresis between the two thresholds: a pointer slowing down mid-swipe keeps pushing, and a
- * slow pointer never starts.
- */
+/** Dead zone with hysteresis, so a cursor resting on a brick doesn't flicker into a push. */
 export function classifyMotion(
   previous: Motion,
-  speed: number,
-  cfg: Pick<typeof PUSH, 'enterSpeed' | 'exitSpeed'> = PUSH,
+  speedPxPerS: number,
+  cfg: Pick<typeof PUSH, 'deadZonePxPerS' | 'deadZoneExitShare'> = PUSH,
 ): Motion {
-  if (previous === 'fast') return speed < cfg.exitSpeed ? 'slow' : 'fast';
-  return speed > cfg.enterSpeed ? 'fast' : 'slow';
+  const threshold = previous === 'moving' ? cfg.deadZonePxPerS * cfg.deadZoneExitShare : cfg.deadZonePxPerS;
+  return speedPxPerS > threshold ? 'moving' : 'still';
 }

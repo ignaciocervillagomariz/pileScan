@@ -6,6 +6,7 @@ import {
   pixelRectToGround,
   playArea,
   pushOut,
+  rayToPlane,
   screenToGround,
   studPixels,
   wallLayout,
@@ -135,8 +136,15 @@ describe('wallLayout', () => {
     expect(wallLayout(area, { minX: 20, maxX: 30, minZ: 0, maxZ: 2 }, 20)).toHaveLength(4);
   });
 
-  it('insets the play area from the visible ground', () => {
+  it('insets the play area from the visible ground, plus any extra (parallax) margin', () => {
     expect(playArea({ minX: -10, maxX: 10, minZ: -5, maxZ: 5 }).maxX).toBeCloseTo(10 - WALLS.inset);
+    expect(playArea({ minX: -10, maxX: 10, minZ: -5, maxZ: 5 }, 1.5).maxX).toBeCloseTo(10 - WALLS.inset - 1.5);
+  });
+
+  it('intersects a camera ray with a horizontal plane', () => {
+    expect(rayToPlane({ x: 0, y: 10, z: 0 }, { x: 0.6, y: -0.8, z: 0 }, 2)).toEqual({ x: 6, z: 0 });
+    expect(rayToPlane({ x: 0, y: 10, z: 0 }, { x: 1, y: 0, z: 0 }, 0)).toBeNull();
+    expect(rayToPlane({ x: 0, y: 10, z: 0 }, { x: 0, y: 1, z: 0 }, 0)).toBeNull();
   });
 });
 

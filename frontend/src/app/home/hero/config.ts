@@ -128,20 +128,47 @@ export const ADAPTIVE = {
 } as const;
 
 /**
- * Pushing with a fast pointer. Speeds are in studs per second over the ground (on a laptop one
- * stud is ~28 px, so 20 studs/s is ~560 px/s: a deliberate flick, not a casual move).
+ * Pushing. Any pointer movement over the scene pushes; the pusher moves with the pointer, so
+ * its speed sets the strength (slow nudges, fast shoves). Pointer speeds are in CSS px/s:
+ * they describe the hand, not the scene, so they need no scaling with the viewport. The
+ * pusher's own speed is in studs/s and scales with the scene already (studPx follows the
+ * viewport).
  */
 export const PUSH = {
   /** Smoothing of the pointer speed: time constant of the exponential moving average. */
-  speedTauMs: 60,
-  /** Hysteresis: start pushing above `enterSpeed`, stop below `exitSpeed`. */
-  enterSpeed: 20,
-  exitSpeed: 9,
-  /** Ignore samples further apart than this (pointer re-entering, a stalled tab). */
+  speedTauMs: 40,
+  /** Dead zone for a nearly still pointer, so the cursor can rest on a brick. */
+  deadZonePxPerS: 60,
+  /** Leaving the dead zone again needs a little less (hysteresis against jitter). */
+  deadZoneExitShare: 0.75,
+  /** Below this speed the brick under the pointer ignores the pusher (hover candidate). */
+  hoverMaxPxPerS: 400,
+  /** Samples further apart than this mean the pointer stopped (or left and came back). */
   maxSampleGapMs: 120,
+  /** After the page scrolls, ignore the pointer this long (the canvas moved under it). */
+  scrollPauseMs: 200,
   /** The pusher is a vertical capsule whose straight part spans a brick's full height. */
   radius: 0.6,
   halfHeight: 0.6,
-  /** The pusher chases the pointer at most this fast, so a flick can't launch bricks. */
+  /** Pusher speed cap in studs/s, so a flick can't launch bricks. */
   maxSpeed: 55,
+  /** With prefers-reduced-motion, pushes stay gentle. */
+  reducedMotionMaxSpeed: 8,
 } as const;
+
+/** Small signs of life while nobody interacts. None of them run with prefers-reduced-motion. */
+export const AMBIENT = {
+  /** The camera orbits up to this far toward the pointer. */
+  parallaxMaxDeg: 1.5,
+  /** Easing rates, per second (higher is snappier). */
+  parallaxRate: 4,
+  liftRate: 10,
+  /** Resting bricks near the cursor rise by up to this much, then settle back. */
+  liftHeight: 1.5 * MM,
+  liftRadius: 2.5,
+  /** Optional: drop one extra brick after a while without interaction. Off by default. */
+  idleDrop: { enabled: false, afterSeconds: 10, everySeconds: 12, max: 8 },
+} as const;
+
+/** The ?debug=1 overlay refreshes at most this often. */
+export const DEBUG = { refreshMs: 100 } as const;
