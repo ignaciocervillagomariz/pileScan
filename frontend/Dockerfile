@@ -6,6 +6,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# The build stamp needs the commit, and .git is not in this build context:
+# docker compose build --build-arg BUILD_COMMIT=$(git describe --always --dirty) frontend
+ARG BUILD_COMMIT=unknown
+ENV BUILD_COMMIT=${BUILD_COMMIT}
 RUN npm run build
 # Pre-compress for nginx's gzip_static: level 9 once at build time instead of level 1 per request.
 RUN find dist/pilescan/browser -type f \( -name '*.js' -o -name '*.css' -o -name '*.wasm' \
