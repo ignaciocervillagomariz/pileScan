@@ -1,6 +1,18 @@
 # Spec: home page with interactive 3D brick hero
 
-Status: plan approved 2026-11-08. Owner of the implementation: single frontend session.
+Status (2026-11-09, end of day): phases 1–2 accepted; phase 3 (push) reworked after the owner
+reported "pushing doesn't work", **awaiting the owner's test with real trackpad and mouse input**.
+Phase 4 has not started and waits for the owner's OK. Owner of the implementation: single
+frontend session.
+
+### Next steps
+1. Owner tests `http://127.0.0.1:4200/?debug=1` (stamp must read `ca6ce66` or later) with
+   trackpad and mouse: resting on a brick, slow nudge, fast shove; reads pointer speed,
+   ev/s and samples/event from the overlay.
+2. Tune `PUSH.deadZonePxPerS` (60) and `PUSH.hoverMaxPxPerS` (400) in
+   `frontend/src/app/home/hero/config.ts` from those numbers; rebuild the image with the stamp.
+3. Re-run the existing E2E suite (not run since the push redesign) and commit.
+4. Phase 4 (grab, lift, drag, rotate, snap, stacking) only after the owner confirms phase 3.
 
 ## Decisions (2026-11-08)
 - **Physics: keep Rapier.** Fast pushes against thin plates (0.4 units) need CCD, stacking
