@@ -98,7 +98,7 @@ describe('wallLayout', () => {
   const area = { minX: -10, maxX: 10, minZ: -6, maxZ: 6 };
 
   it('puts the inner face of each wall on the play-area edge', () => {
-    const [left, right, top, bottom] = wallLayout(area, null, 20);
+    const [left, right, top, bottom] = wallLayout(area, [], 20);
     expect(left.center.x + left.half.x).toBeCloseTo(-10);
     expect(right.center.x - right.half.x).toBeCloseTo(10);
     expect(top.center.z + top.half.z).toBeCloseTo(-6);
@@ -106,19 +106,19 @@ describe('wallLayout', () => {
   });
 
   it('makes walls as tall as requested, standing on the ground', () => {
-    for (const w of wallLayout(area, null, 20)) {
+    for (const w of wallLayout(area, [], 20)) {
       expect(w.center.y - w.half.y).toBeCloseTo(0);
       expect(w.half.y * 2).toBeCloseTo(20);
     }
   });
 
   it('overlaps the corners so nothing slips out diagonally', () => {
-    const [left, , top] = wallLayout(area, null, 20);
+    const [left, , top] = wallLayout(area, [], 20);
     expect(top.center.x - top.half.x).toBeLessThan(left.center.x + left.half.x);
   });
 
   it('adds a keep-out block around the card, inflated by the card margin', () => {
-    const walls = wallLayout(area, { minX: -8, maxX: -2, minZ: -3, maxZ: 3 }, 20);
+    const walls = wallLayout(area, [{ minX: -8, maxX: -2, minZ: -3, maxZ: 3 }], 20);
     expect(walls).toHaveLength(5);
     const block = walls[4];
     expect(block.center.x - block.half.x).toBeCloseTo(-8 - WALLS.cardMargin);
@@ -126,14 +126,19 @@ describe('wallLayout', () => {
   });
 
   it('clips the keep-out block to the play area so it never overlaps a wall', () => {
-    const block = wallLayout(area, { minX: -12, maxX: 12, minZ: -7, maxZ: -2 }, 20)[4];
+    const block = wallLayout(area, [{ minX: -12, maxX: 12, minZ: -7, maxZ: -2 }], 20)[4];
     expect(block.center.x - block.half.x).toBeCloseTo(-10);
     expect(block.center.x + block.half.x).toBeCloseTo(10);
     expect(block.center.z - block.half.z).toBeCloseTo(-6);
   });
 
+  it('adds one block per keep-out (card and dock)', () => {
+    const walls = wallLayout(area, [{ minX: -8, maxX: -2, minZ: -3, maxZ: 3 }, { minX: 6, maxX: 8, minZ: -5, maxZ: -4 }], 20);
+    expect(walls).toHaveLength(6);
+  });
+
   it('skips the keep-out block when the card lies outside the play area', () => {
-    expect(wallLayout(area, { minX: 20, maxX: 30, minZ: 0, maxZ: 2 }, 20)).toHaveLength(4);
+    expect(wallLayout(area, [{ minX: 20, maxX: 30, minZ: 0, maxZ: 2 }], 20)).toHaveLength(4);
   });
 
   it('insets the play area from the visible ground, plus any extra (parallax) margin', () => {

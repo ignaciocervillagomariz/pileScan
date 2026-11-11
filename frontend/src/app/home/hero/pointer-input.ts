@@ -1,21 +1,30 @@
 /**
- * DOM adapter: turns pointer events on the canvas into speed samples (all coalesced samples
- * where the browser provides them), runs the interaction reducer and reports the result.
- * Mouse and trackpad push without a button; touch pushes with a horizontal swipe (the canvas
- * has touch-action: pan-y, so vertical swipes scroll the page and arrive as pointercancel).
- * Any page scroll pauses interaction briefly: the canvas moves under a still cursor, and
- * browsers then send pointermoves that look like a fast swipe.
+ * DOM adapter: turns pointer events on the canvas into actions (move, press, release, leave,
+ * cancel) with a canvas-relative position and the pointer speed. It knows nothing about bricks
+ * or tools: the hero decides what a press landed on and runs the interaction reducer.
+ *
+ * Mouse and pen report hover moves and button presses. Touch has no hover: a gesture reports
+ * nothing until it is clearly sideways, then a press where the finger went down, then moves
+ * (the canvas has touch-action: pan-y, so vertical swipes scroll the page and arrive as
+ * pointercancel). Any page scroll pauses interaction briefly: the canvas moves under a still
+ * cursor, and browsers then send pointermoves that look like a fast swipe.
  */
 import { PUSH } from './config';
-import { AWAY, InteractionState, transition } from './interaction';
-import { classifyMotion, Motion, PointerSpeed, TouchIntent, touchIntent } from './pointer-classifier';
+import { Motion, motionOf, PointerSpeed, TouchIntent, touchIntent } from './pointer-classifier';
+
+export type PointerAction =
+  | { readonly type: 'move'; readonly motion: Motion }
+  | { readonly type: 'press' }
+  | { readonly type: 'release' }
+  | { readonly type: 'leave' }
+  | { readonly type: 'cancel' };
 
 export interface PointerReport {
-  readonly state: InteractionState;
-  /** Canvas-relative CSS pixels; null while away. */
+  readonly action: PointerAction;
+  /** Canvas-relative CSS pixels; null after leave or cancel. */
   readonly position: { readonly x: number; readonly y: number } | null;
   readonly speedPxPerS: number;
-  /** Touch has no hover: the ambient hover hints (parallax, lift) only follow mouse and pen. */
+  /** Touch has no hover: hover effects (parallax, the Glove's lift) only follow mouse and pen. */
   readonly hovers: boolean;
 }
 
@@ -34,52 +43,64 @@ export interface PointerInput {
 
 export function attachPointerInput(
   canvas: HTMLCanvasElement,
-  options: { readonly pushEnabled: boolean; readonly onReport: (report: PointerReport) => void },
+  onReport: (report: PointerReport) => void,
 ): PointerInput {
   const speed = new PointerSpeed();
   const eventTimes: number[] = [];
-  let state: InteractionState = AWAY;
-  let motion: Motion = 'still';
   let position: { x: number; y: number } | null = null;
   let stillTimer: ReturnType<typeof setTimeout> | undefined;
   let pausedUntil = 0;
   let pointerType = '-';
   let samplesPerEvent = 1;
-  /** Touch only: where the finger went down, and what the gesture turned out to be. */
+  /** Touch only: where the finger went down (client px), and what the gesture turned out to be. */
   let touchStart: { x: number; y: number } | null = null;
   let intent: TouchIntent = 'undecided';
 
-  const report = (next: InteractionState) => {
-    state = next;
-    options.onReport({
-      state,
-      position: state.kind === 'away' ? null : position,
+  const relative = (clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+  const report = (action: PointerAction) =>
+    onReport({
+      action,
+      position: action.type === 'leave' || action.type === 'cancel' ? null : position,
       speedPxPerS: speed.speed,
       hovers: pointerType !== 'touch',
     });
-  };
-  const apply = (event: Parameters<typeof transition>[1]) =>
-    report(transition(state, event, { pushEnabled: options.pushEnabled }));
 
-  /** A pointer that stops sends no more events: drop to the dead zone after a short gap. */
+  /** A pointer that stops sends no more events: it is still once the gap has passed. */
   const onStill = () => {
     speed.reset();
-    motion = 'still';
-    if (state.kind !== 'away') apply({ type: 'move', motion });
+    if (position) report({ type: 'move', motion: 'still' });
   };
 
   const onDown = (e: PointerEvent) => {
-    if (e.pointerType !== 'touch') return;
-    touchStart = { x: e.clientX, y: e.clientY };
-    intent = 'undecided';
+    if (e.timeStamp < pausedUntil) return;
+    pointerType = e.pointerType;
+    if (e.pointerType === 'touch') {
+      touchStart = { x: e.clientX, y: e.clientY };
+      intent = 'undecided';
+      return;
+    }
+    if (e.button !== 0) return;
+    // Keep receiving moves while the button is held, even over the card or outside the canvas.
+    canvas.setPointerCapture(e.pointerId);
+    position = relative(e.clientX, e.clientY);
+    report({ type: 'press' });
   };
 
   const onMove = (e: PointerEvent) => {
     if (e.timeStamp < pausedUntil) return;
     pointerType = e.pointerType;
     if (e.pointerType === 'touch' && touchStart) {
-      if (intent === 'undecided') intent = touchIntent(e.clientX - touchStart.x, e.clientY - touchStart.y);
-      // Until the gesture is clearly sideways, leave it to the browser (it may become a scroll).
+      if (intent === 'undecided') {
+        intent = touchIntent(e.clientX - touchStart.x, e.clientY - touchStart.y);
+        // Until the gesture is clearly sideways, leave it to the browser (it may become a scroll).
+        if (intent !== 'push') return;
+        // The press lands where the finger went down, so a drag that starts on the table sweeps.
+        position = relative(touchStart.x, touchStart.y);
+        report({ type: 'press' });
+      }
       if (intent !== 'push') return;
     }
     const rect = canvas.getBoundingClientRect();
@@ -87,12 +108,13 @@ export function attachPointerInput(
     const samples = coalesced.length > 0 ? coalesced : [e];
     samplesPerEvent = samples.length;
     for (const s of samples) speed.add({ x: s.clientX - rect.left, y: s.clientY - rect.top, timeMs: s.timeStamp });
-    position = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const next = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const motion = position ? motionOf(next.x - position.x, next.y - position.y) : 'still';
+    position = next;
     eventTimes.push(e.timeStamp);
     while (eventTimes.length > 0 && eventTimes[0] < e.timeStamp - 1000) eventTimes.shift();
 
-    motion = classifyMotion(motion, speed.speed);
-    apply({ type: 'move', motion });
+    report({ type: 'move', motion });
     clearTimeout(stillTimer);
     stillTimer = setTimeout(onStill, PUSH.maxSampleGapMs);
   };
@@ -102,18 +124,24 @@ export function attachPointerInput(
     touchStart = null;
     intent = 'undecided';
     speed.reset();
-    motion = 'still';
-    apply({ type });
+    position = null;
+    report({ type });
   };
   const onLeave = () => end('leave');
   const onCancel = () => end('cancel');
-  /** A lifted finger ends the gesture; a released mouse button does not. */
   const onUp = (e: PointerEvent) => {
-    if (e.pointerType !== 'mouse') end('leave');
+    if (e.pointerType === 'touch') {
+      if (intent === 'push') report({ type: 'release' });
+      end('leave');
+      return;
+    }
+    if (e.button !== 0) return;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    report({ type: 'release' });
   };
   const onScroll = (e: Event) => {
     pausedUntil = e.timeStamp + PUSH.scrollPauseMs;
-    if (state.kind !== 'away') end('cancel');
+    if (position || touchStart) end('cancel');
   };
 
   canvas.addEventListener('pointerdown', onDown);

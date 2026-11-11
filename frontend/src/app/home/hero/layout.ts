@@ -163,10 +163,11 @@ export function rayToPlane(
 }
 
 /**
- * Four walls whose inner faces are the play area's edges, plus a keep-out block under the text
- * card. Walls are taller than the spawn height so nothing can land on top of them.
+ * Four walls whose inner faces are the play area's edges, plus one keep-out block under each
+ * overlay (the text card, the tool dock). Walls are taller than the spawn height so nothing can
+ * land on top of them.
  */
-export function wallLayout(area: GroundRect, keepOut: GroundRect | null, height: number, cfg = WALLS): Cuboid[] {
+export function wallLayout(area: GroundRect, keepOuts: readonly GroundRect[], height: number, cfg = WALLS): Cuboid[] {
   const t = cfg.thickness / 2;
   const h = height / 2;
   const midX = (area.minX + area.maxX) / 2;
@@ -179,7 +180,7 @@ export function wallLayout(area: GroundRect, keepOut: GroundRect | null, height:
     { center: { x: midX, y: h, z: area.minZ - t }, half: { x: halfX, y: h, z: t } },
     { center: { x: midX, y: h, z: area.maxZ + t }, half: { x: halfX, y: h, z: t } },
   ];
-  if (keepOut) {
+  for (const keepOut of keepOuts) {
     // Clipped to the play area: fixed colliders that overlap the walls trap bricks between them.
     const k = intersect(inflate(keepOut, cfg.cardMargin), area);
     if (k.minX < k.maxX && k.minZ < k.maxZ) {

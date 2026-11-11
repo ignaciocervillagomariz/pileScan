@@ -8,6 +8,8 @@
   --hero-card-shadow: 0 10px 30px rgba(31, 42, 68, 0.12), 0 1px 3px rgba(31, 42, 68, 0.08);
   --cta-bg: var(--ps-brand-dark);
   --cta-ink: #ffffff;
+  --hero-tool-hover: rgba(31, 42, 68, 0.06);
+  --hero-tool-active: rgba(31, 42, 68, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,6 +27,8 @@
     --hero-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     --cta-bg: #fdba74;
     --cta-ink: #1f1c1a;
+    --hero-tool-hover: rgba(255, 255, 255, 0.08);
+    --hero-tool-active: rgba(255, 255, 255, 0.14);
   }
 }
 
@@ -88,22 +92,144 @@ ion-content {
   }
 }
 
-.replay {
+// Cursors are 32x32 SVGs; the numbers are their hotspots, the keyword the fallback.
+.hero-canvas[data-cursor='glove-open'] {
+  cursor: url('/hero/cursors/glove-open.svg') 16 16, grab;
+}
+
+.hero-canvas[data-cursor='glove-closed'] {
+  cursor: url('/hero/cursors/glove-closed.svg') 16 16, grabbing;
+}
+
+.hero-canvas[data-cursor='separator'] {
+  cursor: url('/hero/cursors/separator.svg') 5 5, crosshair;
+}
+
+// Phones: bottom-right, where the thumb reaches. Desktop: top-right (media query below).
+.dock {
   position: absolute;
   z-index: 2;
   right: 16px;
   bottom: calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--ps-line);
+  border-radius: 28px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+  visibility: hidden;
+}
+
+[data-hero-state='live'] .dock {
+  visibility: visible;
+}
+
+.tools {
+  display: flex;
+  gap: 4px;
+}
+
+.tool {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid var(--ps-line);
+  border: 2px solid transparent;
   border-radius: 50%;
-  background: var(--hero-card-bg);
+  background: transparent;
   color: var(--ps-ink);
-  box-shadow: var(--hero-card-shadow);
   cursor: pointer;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+
+  &:hover:not(:disabled) {
+    background: var(--hero-tool-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ps-brand-dark);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    border-color: var(--ps-brand-dark);
+    background: var(--hero-tool-active);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+}
+
+.icon-fill {
+  fill: var(--hero-card-bg);
+}
+
+.divider {
+  width: 1px;
+  height: 28px;
+  margin: 0 2px;
+  background: var(--ps-line);
+}
+
+.hint {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ps-ink-soft);
+  // Decorative help: it never blocks the scene underneath.
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 600ms ease-out;
+}
+
+[data-hero-state='live'] .hint {
+  visibility: visible;
+}
+
+.hint.faded {
+  opacity: 0;
+}
+
+@media (min-width: 768px) {
+  .dock {
+    top: calc(16px + env(safe-area-inset-top));
+    bottom: auto;
+  }
+
+  .hint {
+    top: calc(76px + env(safe-area-inset-top));
+    bottom: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    transition: none;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .brand {

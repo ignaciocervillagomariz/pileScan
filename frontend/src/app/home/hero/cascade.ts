@@ -21,7 +21,8 @@ export interface Spawn {
 export interface CascadeInput {
   readonly count: number;
   readonly area: GroundRect;
-  readonly keepOut: GroundRect | null;
+  /** Areas under overlays (card, dock) where no brick may drop. */
+  readonly keepOuts: readonly GroundRect[];
   readonly spawnHeight: number;
   readonly seed: number;
 }
@@ -92,7 +93,7 @@ export function gravityFor(height: number, seconds: number = CASCADE.fallSeconds
 function pickSpot(
   random: Random,
   area: GroundRect,
-  blocked: GroundRect | null,
+  blocked: readonly GroundRect[],
   recent: readonly { x: number; z: number }[],
   spacing: number,
   attempts: number,
@@ -101,7 +102,7 @@ function pickSpot(
   for (let attempt = 0; attempt < attempts * 4; attempt++) {
     const x = randomBetween(random, area.minX, area.maxX);
     const z = randomBetween(random, area.minZ, area.maxZ);
-    if (blocked && contains(blocked, x, z)) continue;
+    if (blocked.some((b) => contains(b, x, z))) continue;
     if (attempt >= attempts || !recent.some((p) => Math.hypot(p.x - x, p.z - z) < spacing)) return { x, z };
     fallback ??= { x, z };
   }
@@ -122,7 +123,7 @@ export function planCascade(input: CascadeInput, cfg = CASCADE): Spawn[] {
     const shape = shapes[i % shapes.length];
     const radius = footprintRadius(shape);
     const area = inflate(input.area, -radius);
-    const blocked = input.keepOut ? inflate(input.keepOut, radius) : null;
+    const blocked = input.keepOuts.map((k) => inflate(k, radius));
 
     const { x, z } = pickSpot(random, area, blocked, recent, cfg.minSpacing + radius, cfg.maxAttempts);
     recent.push({ x, z });

@@ -52,9 +52,11 @@ once more (or use a private window).
 ### Hero debug overlay
 
 `/?debug=1` shows the build stamp, hero state and fallback reason, quality tier, reduced motion,
-fps, pointer speed (px/s) and push state, input rate and coalesced samples per event, the pusher
-(also drawn as a red wireframe in the scene), the hover candidate and the element under the
-pointer. Tunables live in `src/app/home/hero/config.ts`.
+the active tool, fps, pointer speed (px/s) and interaction state, input rate and coalesced
+samples per event, the pusher (also drawn as a red wireframe in the scene), the hovered brick,
+how many bricks are still clearing a freshly placed pusher, and the element under the pointer.
+Tunables live in `src/app/home/hero/config.ts`. The tools (Glove, Push, Separator) are specified
+in `docs/specs/home-hero.md`.
 
 ## Structure
 
@@ -115,7 +117,7 @@ Routes: `/` home (3D hero, spec in `docs/specs/home-hero.md`), `/scan` capture, 
 
 | Screen | Ids |
 | --- | --- |
-| Home | `home-hero` (`data-hero-state` = `static` / `loading` / `live` / `fallback`), `hero-canvas`, `home-headline`, `home-cta`, `hero-debug-overlay` (only with `?debug=1`; rows carry `data-debug="<label>"`), `hero-replay` |
+| Home | `home-hero` (`data-hero-state` = `static` / `loading` / `live` / `fallback`), `hero-canvas`, `home-headline`, `home-cta`, `hero-debug-overlay` (only with `?debug=1`; rows carry `data-debug="<label>"`), `hero-dock`, `hero-tool-glove` / `hero-tool-push` / `hero-tool-separator` (`aria-pressed` marks the active tool), `hero-hint`, `hero-replay`; the canvas carries `data-cursor` |
 | Capture | `capture-input` (camera, `capture=environment`), `gallery-input`, `camera-button` (native only), `photo-preview`, `upload-button`, `choose-another-button`, `upload-loading`, `capture-error`, `photo-tips` |
 | Review | `scan-canvas` (`data-selected-detection` = id of the tapped/edited detection, `data-highlighted-detections` = comma-separated ids of expanded groups), `total-count`, `summary-detail`, `group-list`, `group-row` (`data-part-num`, `data-color-id`, `data-count`), `group-count`, `detection-row` (`data-detection-id`), `add-piece-button`, `draw-hint`, `add-without-box-button`, `cancel-draw-button`, `find-sets-button`, `scan-failed`, `scan-warning`, `review-loading`, `review-error`, `review-action-error` |
 | Edit/add dialog | `edit-dialog`, `edit-close`, `part-search-input`, `part-results`, `part-option` (`data-part-num`), `part-no-results`, `part-candidate-0..2`, `color-search-input`, `color-list`, `color-option` (`data-color-id`), `color-candidate-0..2`, `edit-current-part`, `edit-current-color`, `edit-save`, `delete-detection-button`, `edit-cancel`, `edit-error` |

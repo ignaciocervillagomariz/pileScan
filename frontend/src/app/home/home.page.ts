@@ -22,6 +22,7 @@ import { isDebugRequested } from './hero/debug-params';
 import type { HeroActivity, HeroDebugInfo, HeroHandle } from './hero/hero';
 import { measureAsync } from './hero/perf';
 import { connectionAllows3d, pickTier } from './hero/quality';
+import { DEFAULT_TOOL, Tool, toolAfterKey, toolInfo, TOOLS } from './hero/tools';
 
 /**
  * - `static`: CSS surface only, before the 3D chunk is requested (first paint).
@@ -39,11 +40,19 @@ type FallbackReason = 'low tier' | 'slow or metered connection' | 'no hardware W
   imports: [IonContent, RouterLink, AppFooter, DebugOverlay],
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
+  host: { '(document:keydown)': 'onKey($event)' },
 })
 export class HomePage implements OnDestroy {
   private readonly hostEl = viewChild.required<ElementRef<HTMLElement>>('hero');
   private readonly canvasEl = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly cardEl = viewChild.required<ElementRef<HTMLElement>>('card');
+  private readonly dockEl = viewChild.required<ElementRef<HTMLElement>>('dock');
+
+  protected readonly tools = TOOLS;
+  protected readonly tool = signal<Tool>(DEFAULT_TOOL);
+  protected readonly hint = computed(() => toolInfo(this.tool()).hint);
+  /** The hint shows for each newly chosen tool and fades after the first interaction with it. */
+  protected readonly hintVisible = signal(true);
 
   protected readonly heroState = signal<HeroState>('static');
   /** `moving` during the cascade or a push, `resting` once every brick sleeps. */
@@ -64,6 +73,7 @@ export class HomePage implements OnDestroy {
       { label: 'fallback', value: this.fallbackReason() ?? 'no' },
       { label: 'tier', value: d?.tier ?? this.tierName() },
       { label: 'reduced motion', value: this.reducedMotion ? 'yes' : 'no' },
+      { label: 'tool', value: this.tool() },
       { label: 'fps', value: d ? `${d.fps.toFixed(0)} · p95 ${d.p95Ms.toFixed(1)} ms` : '-' },
       { label: 'bricks', value: d ? `${d.bricks} · redrops ${d.redrops}` : '-' },
       { label: 'pointer', value: d ? `${d.pointerState} · ${px(d.speedPxPerS)}` : '-' },
@@ -75,7 +85,7 @@ export class HomePage implements OnDestroy {
       {
         label: 'hover',
         value: d
-          ? `${d.hovered ? `#${d.hovered.id} at ${d.hovered.x.toFixed(2)}, ${d.hovered.z.toFixed(2)}` : '-'} · ignoring pusher ${d.excluded}`
+          ? `${d.hovered ? `#${d.hovered.id} at ${d.hovered.x.toFixed(2)}, ${d.hovered.z.toFixed(2)}` : '-'} · clearing pusher ${d.excluded}`
           : '-',
       },
       { label: 'under pointer', value: this.elementUnderPointer() },
@@ -101,6 +111,18 @@ export class HomePage implements OnDestroy {
 
   protected replay(): void {
     this.hero?.replay();
+  }
+
+  protected selectTool(tool: Tool): void {
+    if (tool === this.tool()) return;
+    this.tool.set(tool);
+    this.hintVisible.set(true);
+    this.hero?.setTool(tool);
+  }
+
+  protected onKey(event: KeyboardEvent): void {
+    if (this.heroState() !== 'live') return;
+    this.selectTool(toolAfterKey(this.tool(), event.key));
   }
 
   /** Debug: which element would receive a pointer event here (is the canvas really on top?). */
@@ -130,13 +152,14 @@ export class HomePage implements OnDestroy {
         {
           host: this.hostEl().nativeElement,
           canvas: this.canvasEl().nativeElement,
-          card: this.cardEl().nativeElement,
+          keepOuts: [this.cardEl().nativeElement, this.dockEl().nativeElement],
         },
         {
           tier,
           debug: this.debug,
           reducedMotion: this.reducedMotion,
           onActivity: (activity) => this.heroActivity.set(activity),
+          onInteract: () => this.hintVisible.set(false),
           onDebug: this.debug ? (info) => this.debugInfo.set(info) : undefined,
         },
       ));

@@ -1,5 +1,5 @@
 import { PUSH } from './config';
-import { classifyMotion, Motion, PointerSample, PointerSpeed, touchIntent } from './pointer-classifier';
+import { Motion, motionOf, PointerSample, PointerSpeed, touchIntent } from './pointer-classifier';
 import { createRandom } from './random';
 
 /**
@@ -29,13 +29,13 @@ function stream(opts: { pxPerSecond: number; hz: number; seconds: number; seed?:
 
 function classify(samples: PointerSample[]): { motions: Motion[]; speeds: number[] } {
   const speed = new PointerSpeed();
-  let motion: Motion = 'still';
   const motions: Motion[] = [];
   const speeds: number[] = [];
+  let last: PointerSample | null = null;
   for (const s of samples) {
     speeds.push(speed.add(s));
-    motion = classifyMotion(motion, speed.speed);
-    motions.push(motion);
+    motions.push(last ? motionOf(s.x - last.x, s.y - last.y) : 'still');
+    last = s;
   }
   return { motions, speeds };
 }
@@ -48,24 +48,12 @@ describe('pointer speed on realistic input', () => {
       expect(speeds[speeds.length - 1]).toBeLessThan(330);
     });
 
-    it(`starts pushing within ~50 ms of a normal move at ${hz} Hz`, () => {
-      const samples = stream({ pxPerSecond: 300, hz, seconds: 0.3 });
-      const { motions } = classify(samples);
-      const first = motions.indexOf('moving');
-      expect(first).toBeGreaterThan(0);
-      expect(samples[first].timeMs).toBeLessThan(50);
+    it(`pushes from the second sample of a move at ${hz} Hz (no ramp-up)`, () => {
+      const { motions } = classify(stream({ pxPerSecond: 300, hz, seconds: 0.3 }));
+      expect(motions.indexOf('moving')).toBe(1);
     });
   }
 
-  it('pushes even on a slow drift just above the dead zone (no fast/slow split any more)', () => {
-    const { motions } = classify(stream({ pxPerSecond: PUSH.deadZonePxPerS * 1.6, hz: 60, seconds: 1 }));
-    expect(motions.slice(-30).every((m) => m === 'moving')).toBe(true);
-  });
-
-  it('a resting hand (sub-pixel tremor, no real movement) stays in the dead zone', () => {
-    const { motions } = classify(stream({ pxPerSecond: 0, hz: 120, seconds: 2, tremorPx: 0.3 }));
-    expect(motions).not.toContain('moving');
-  });
 
   it('coalesced 120 Hz samples inside 60 Hz events give the same speed as the plain stream', () => {
     const fine = stream({ pxPerSecond: 500, hz: 120, seconds: 0.5, seed: 3 });
@@ -91,13 +79,26 @@ describe('PointerSpeed edge cases', () => {
   });
 });
 
-describe('dead zone with hysteresis', () => {
-  it('enters above the dead zone and leaves only below the lower exit threshold', () => {
-    const exit = PUSH.deadZonePxPerS * PUSH.deadZoneExitShare;
-    expect(classifyMotion('still', PUSH.deadZonePxPerS + 1)).toBe('moving');
-    expect(classifyMotion('still', PUSH.deadZonePxPerS - 1)).toBe('still');
-    expect(classifyMotion('moving', (PUSH.deadZonePxPerS + exit) / 2)).toBe('moving');
-    expect(classifyMotion('moving', exit - 1)).toBe('still');
+describe('Push has no threshold', () => {
+  it('a 1 px/s crawl pushes on every sample', () => {
+    const { motions } = classify(stream({ pxPerSecond: 1, hz: 60, seconds: 1 }));
+    expect(motions.slice(1).every((m) => m === 'moving')).toBe(true);
+  });
+
+  it('even sub-pixel tremor counts as movement', () => {
+    const { motions } = classify(stream({ pxPerSecond: 0, hz: 120, seconds: 0.5, tremorPx: 0.3 }));
+    expect(motions.slice(1).every((m) => m === 'moving')).toBe(true);
+  });
+
+  it('only a pointer that has not moved at all is still', () => {
+    expect(motionOf(0, 0)).toBe('still');
+    expect(motionOf(0.01, 0)).toBe('moving');
+  });
+
+  it('has no speed thresholds left in the configuration', () => {
+    for (const key of ['deadZonePxPerS', 'deadZoneExitShare', 'hoverMaxPxPerS']) {
+      expect(key in PUSH).toBe(false);
+    }
   });
 });
 

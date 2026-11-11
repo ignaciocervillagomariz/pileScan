@@ -128,21 +128,16 @@ export const ADAPTIVE = {
 } as const;
 
 /**
- * Pushing. Any pointer movement over the scene pushes; the pusher moves with the pointer, so
- * its speed sets the strength (slow nudges, fast shoves). Pointer speeds are in CSS px/s:
- * they describe the hand, not the scene, so they need no scaling with the viewport. The
- * pusher's own speed is in studs/s and scales with the scene already (studPx follows the
- * viewport).
+ * The pusher, used by the Push tool (any movement) and the Glove's sweep (button held on the
+ * table). It moves with the pointer, so the pointer's velocity sets the strength (slow nudges,
+ * fast shoves). There is no speed threshold: only a completely still pointer is ignored.
+ * Pointer speeds are in CSS px/s: they describe the hand, not the scene, so they need no
+ * scaling with the viewport. The pusher's own speed is in studs/s and scales with the scene
+ * already (studPx follows the viewport).
  */
 export const PUSH = {
   /** Smoothing of the pointer speed: time constant of the exponential moving average. */
   speedTauMs: 40,
-  /** Dead zone for a nearly still pointer, so the cursor can rest on a brick. */
-  deadZonePxPerS: 60,
-  /** Leaving the dead zone again needs a little less (hysteresis against jitter). */
-  deadZoneExitShare: 0.75,
-  /** Below this speed the brick under the pointer ignores the pusher (hover candidate). */
-  hoverMaxPxPerS: 400,
   /** Samples further apart than this mean the pointer stopped (or left and came back). */
   maxSampleGapMs: 120,
   /**
@@ -165,14 +160,18 @@ export const PUSH = {
 export const AMBIENT = {
   /** The camera orbits up to this far toward the pointer. */
   parallaxMaxDeg: 1.5,
-  /** Easing rates, per second (higher is snappier). */
+  /** Easing rate, per second (higher is snappier). */
   parallaxRate: 4,
-  liftRate: 10,
-  /** Resting bricks near the cursor rise by up to this much, then settle back. */
-  liftHeight: 1.5 * MM,
-  liftRadius: 2.5,
   /** Optional: drop one extra brick after a while without interaction. Off by default. */
   idleDrop: { enabled: false, afterSeconds: 10, everySeconds: 12, max: 8 },
+} as const;
+
+/** The Glove tool. */
+export const GLOVE = {
+  /** Hovering never moves anything: the brick under the cursor only rises this much (visual). */
+  hoverLift: 1.5 * MM,
+  /** Easing rate of that lift, per second. */
+  liftRate: 10,
 } as const;
 
 /** The ?debug=1 overlay refreshes at most this often. */

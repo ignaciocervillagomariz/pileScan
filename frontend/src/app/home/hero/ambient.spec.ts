@@ -1,5 +1,5 @@
-import { approach, liftAt, parallaxAngles, parallaxMargin, settled } from './ambient';
-import { AMBIENT } from './config';
+import { approach, parallaxAngles, parallaxMargin, settled } from './ambient';
+import { AMBIENT, GLOVE } from './config';
 
 const DEG = Math.PI / 180;
 
@@ -21,17 +21,11 @@ describe('parallax', () => {
   });
 });
 
-describe('lift near the cursor', () => {
-  it('lifts 1–2 mm right under the cursor and nothing outside the radius', () => {
-    const mm = liftAt(0) * 8;
+describe('Glove hover lift', () => {
+  it('lifts the hovered brick 1–2 mm (1 stud = 8 mm)', () => {
+    const mm = GLOVE.hoverLift * 8;
     expect(mm).toBeGreaterThanOrEqual(1);
     expect(mm).toBeLessThanOrEqual(2);
-    expect(liftAt(AMBIENT.liftRadius)).toBe(0);
-  });
-
-  it('falls off smoothly with distance', () => {
-    expect(liftAt(0.5)).toBeGreaterThan(liftAt(1.5));
-    expect(liftAt(1.5)).toBeGreaterThan(0);
   });
 });
 

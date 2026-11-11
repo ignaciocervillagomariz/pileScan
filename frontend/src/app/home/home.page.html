@@ -11,10 +11,65 @@
       <!-- Decorative: every piece of content and the CTA live in the card below. -->
       <canvas #canvas class="hero-canvas" aria-hidden="true" data-testid="hero-canvas"></canvas>
 
-      @if (heroState() === 'live') {
+      <!-- Always in the layout (the scene keeps bricks out from under it), shown once live. -->
+      <div #dock class="dock" data-testid="hero-dock" [attr.inert]="heroState() === 'live' ? null : ''">
+        <div class="tools" role="group" aria-label="Tool">
+          @for (t of tools; track t.id) {
+            <button
+              type="button"
+              class="tool"
+              [attr.aria-pressed]="tool() === t.id"
+              [attr.title]="t.id === 'separator' ? t.label + ' (not available yet)' : t.label"
+              [disabled]="t.id === 'separator'"
+              [attr.data-testid]="'hero-tool-' + t.id"
+              (click)="selectTool(t.id)"
+            >
+              <!-- Same drawings as the cursors, but stroked in currentColor so they follow the theme. -->
+              <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+                @switch (t.id) {
+                  @case ('glove') {
+                    <g class="icon-fill" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                      <rect x="3.5" y="12" width="4.2" height="9.5" rx="2.1" transform="rotate(-38 5.6 16.8)" />
+                      <rect x="8.6" y="4.5" width="4.2" height="12.5" rx="2.1" />
+                      <rect x="12.8" y="2.5" width="4.2" height="13.5" rx="2.1" />
+                      <rect x="17" y="3.5" width="4.2" height="12.5" rx="2.1" />
+                      <rect x="21.2" y="6.5" width="3.8" height="10.5" rx="1.9" />
+                      <rect x="7.5" y="11.5" width="17.5" height="12.5" rx="5.5" />
+                      <rect x="9.5" y="23" width="13.5" height="6" rx="2" />
+                    </g>
+                  }
+                  @case ('push') {
+                    <path d="M2 11h8M4 16h7M2 21h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    <rect class="icon-fill" x="14" y="9" width="15" height="14" rx="2.5" stroke="currentColor" stroke-width="1.8" />
+                    <g fill="none" stroke="currentColor" stroke-width="1.2">
+                      <circle cx="18.8" cy="13.6" r="1.6" />
+                      <circle cx="24.2" cy="13.6" r="1.6" />
+                      <circle cx="18.8" cy="18.4" r="1.6" />
+                      <circle cx="24.2" cy="18.4" r="1.6" />
+                    </g>
+                  }
+                  @case ('separator') {
+                    <g transform="rotate(-45 16 16)">
+                      <path
+                        d="M16 1.5 L19.5 7 V28.5 Q19.5 31 17 31 H15 Q12.5 31 12.5 28.5 V7 Z"
+                        fill="#f28c28"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linejoin="round"
+                      />
+                      <rect x="14.6" y="20" width="2.8" height="7.5" rx="1.4" fill="#b85c10" />
+                    </g>
+                  }
+                }
+              </svg>
+              <span class="visually-hidden">{{ t.label }}</span>
+            </button>
+          }
+        </div>
+        <span class="divider" aria-hidden="true"></span>
         <button
           type="button"
-          class="replay"
+          class="tool"
           aria-label="Drop the bricks again"
           title="Drop the bricks again"
           data-testid="hero-replay"
@@ -27,7 +82,8 @@
             />
           </svg>
         </button>
-      }
+      </div>
+      <p class="hint" [class.faded]="!hintVisible()" aria-live="polite" data-testid="hero-hint">{{ hint() }}</p>
 
       @if (debug) {
         <app-debug-overlay [rows]="debugRows()" />

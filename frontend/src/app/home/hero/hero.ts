@@ -1,11 +1,12 @@
 /**
  * Entry point of the lazily loaded hero chunk. Wires scene, physics and pointer input to the
  * host element and runs the loop: fixed 60 Hz physics, render on demand (also for the ambient
- * easing), paused when off-screen or hidden.
+ * easing), paused when off-screen or hidden. The active tool (set by the page's dock) decides
+ * what the pointer does; see `interaction.ts`.
  */
-import { liftAt, parallaxAngles, parallaxMargin, approach, settled } from './ambient';
+import { approach, parallaxAngles, parallaxMargin, settled } from './ambient';
 import { footprintRadius, gravityFor, planCascade, Spawn } from './cascade';
-import { ADAPTIVE, AMBIENT, CASCADE, DEBUG, PHYSICS, PUSH, WALLS } from './config';
+import { ADAPTIVE, AMBIENT, CASCADE, DEBUG, GLOVE, PHYSICS, PUSH, WALLS } from './config';
 import { FrameStats } from './frame-stats';
 import {
   CameraFit,
@@ -20,12 +21,17 @@ import {
   rayToPlane,
   wallLayout,
 } from './layout';
+import { AWAY, InteractionState, pusherActive, transition } from './interaction';
 import { yieldToMain } from './perf';
 import { Physics, PUSHER_Y } from './physics';
 import { attachPointerInput, PointerReport, PointerStats } from './pointer-input';
-import { hoverCandidate, nextExclusions } from './push-rules';
+import { nextExclusions } from './push-rules';
 import { QualityTier, TIERS } from './quality';
 import { HeroScene, Theme } from './scene';
+import { DEFAULT_TOOL, Tool } from './tools';
+
+/** Which cursor the canvas shows; the page's stylesheet maps it to the cursor images. */
+export type HeroCursor = 'default' | 'glove-open' | 'glove-closed' | 'separator';
 
 export type HeroActivity = 'moving' | 'resting';
 
@@ -36,6 +42,7 @@ export interface HeroDebugInfo {
   readonly tier: string;
   readonly bricks: number;
   readonly redrops: number;
+  readonly tool: Tool;
   readonly pointerState: string;
   readonly speedPxPerS: number;
   readonly input: PointerStats;
@@ -51,6 +58,8 @@ export interface HeroOptions {
   readonly reducedMotion: boolean;
   /** Called when the bricks start moving or come to rest (state attribute, tests). */
   readonly onActivity?: (activity: HeroActivity) => void;
+  /** Called when the visitor does something with the active tool (the hint fades). */
+  readonly onInteract?: () => void;
   /** ?debug=1 only: called at most every DEBUG.refreshMs. */
   readonly onDebug?: (info: HeroDebugInfo) => void;
 }
@@ -59,13 +68,15 @@ export interface HeroElements {
   /** The hero section: its size is the scene's viewport. */
   readonly host: HTMLElement;
   readonly canvas: HTMLCanvasElement;
-  /** The text card: bricks keep out of the area under it. */
-  readonly card: HTMLElement;
+  /** Overlays (the text card, the tool dock): bricks keep out of the areas under them. */
+  readonly keepOuts: readonly HTMLElement[];
 }
 
 export interface HeroHandle {
   /** Clears the table and drops a new cascade. */
   replay(): void;
+  /** Switches the tool; whatever the pointer was doing ends. */
+  setTool(tool: Tool): void;
   dispose(): void;
 }
 
@@ -94,7 +105,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
 
   let fit: CameraFit | null = null;
   let area: GroundRect | null = null;
-  let keepOut: GroundRect | null = null;
+  let keepOuts: GroundRect[] = [];
   let plan: Spawn[] = [];
   /** Bricks from the plan that may drop now; idle drops raise it one at a time. */
   let released = 0;
@@ -113,11 +124,12 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   let redrops = 0;
   let lastDebugAt = 0;
 
+  let tool: Tool = DEFAULT_TOOL;
+  let interaction: InteractionState = AWAY;
   let pointer: PointerReport | null = null;
+  /** Glove: the brick under a hovering mouse or pen; it lifts slightly (never moves). */
   let hovered: number | null = null;
   let excluded = new Set<number>();
-  /** Where the cursor is on the brick plane, for the ambient lift; null when away. */
-  let liftCenter: { x: number; z: number } | null = null;
   const lifts = new Map<number, number>();
   let lastInteractionAt = performance.now();
   let lastIdleDropAt = 0;
@@ -132,7 +144,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   const safeSpot = (x: number, z: number): { x: number; z: number } => {
     if (!area) return { x, z };
     let spot = clampInto(area, x, z, 1);
-    if (keepOut) {
+    for (const keepOut of keepOuts) {
       const blocked = inflate(keepOut, WALLS.cardMargin);
       if (contains(blocked, spot.x, spot.z)) {
         const out = pushOut(inflate(blocked, 1), spot.x, spot.z);
@@ -180,9 +192,9 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     released = Math.min(released, plan.length);
   };
 
-  /** Applies the hover/overlap rule: which bricks currently pass through the pusher. */
+  /** Applies the overlap rule: which bricks still pass through a freshly placed pusher. */
   const updateExclusions = () => {
-    const next = nextExclusions(excluded, hovered, physics.pusherPosition, (id) => {
+    const next = nextExclusions(excluded, physics.pusherPosition, (id) => {
       const p = physics.position(id);
       return p && plan[id] ? { x: p.x, z: p.z, radius: footprintRadius(plan[id].shape) } : null;
     });
@@ -191,21 +203,18 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     excluded = next;
   };
 
-  /** Eases the ambient lift of resting bricks near the cursor. Returns true while animating. */
+  /** Eases the Glove's hover lift (visual only). Returns true while animating. */
   const updateLifts = (dt: number): boolean => {
     let animating = false;
-    physics.forEachPose((id, pose) => {
+    physics.forEachPose((id) => {
       const current = lifts.get(id) ?? 0;
-      const target =
-        liftCenter && physics.isSleeping(id)
-          ? liftAt(Math.hypot(pose.position.x - liftCenter.x, pose.position.z - liftCenter.z))
-          : 0;
+      const target = id === hovered && physics.isSleeping(id) ? GLOVE.hoverLift : 0;
       if (settled(current, target, 1e-4)) {
         if (target === 0) lifts.delete(id);
         else lifts.set(id, target);
         return;
       }
-      lifts.set(id, approach(current, target, AMBIENT.liftRate, dt));
+      lifts.set(id, approach(current, target, GLOVE.liftRate, dt));
       animating = true;
     });
     return animating;
@@ -227,7 +236,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
       tier: tier.name,
       bricks: nextSpawn,
       redrops,
-      pointerState: pointer?.state.kind ?? 'away',
+      tool,
+      pointerState: interaction.kind,
       speedPxPerS: pointer?.speedPxPerS ?? 0,
       input: input.stats(),
       pusher,
@@ -262,7 +272,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     adaptQuality();
     reportDebug(now);
 
-    const resting = nextSpawn >= released && !physics.pushing && physics.isResting();
+    const resting = nextSpawn >= released && !physics.pusherMoving && physics.isResting();
     setActivity(resting ? 'resting' : 'moving');
     // Render on demand: stop once nothing moves or eases (debug mode keeps measuring).
     if (!resting || lifting || orbiting || options.debug) schedule();
@@ -278,36 +288,77 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     schedule();
   };
 
+  const cursorFor = (): HeroCursor => {
+    switch (tool) {
+      case 'push':
+        return 'default';
+      case 'separator':
+        return 'separator';
+      case 'glove':
+        return interaction.kind === 'sweeping' ? 'glove-closed' : 'glove-open';
+    }
+  };
+
+  const setInteraction = (next: InteractionState) => {
+    const acting = (s: InteractionState) => s.kind === 'pushing' || s.kind === 'sweeping';
+    if (acting(next) && !acting(interaction)) options.onInteract?.();
+    interaction = next;
+    els.canvas.dataset['cursor'] = cursorFor();
+  };
+
+  /** The pointer is gone (left, cancelled, tool switched): nothing follows it any more. */
+  const stopFollowing = () => {
+    physics.setPusher(null);
+    hovered = null;
+    scene.setParallaxTarget(0, 0);
+  };
+
+  /** Starts or moves the pusher. Bricks it appears inside ignore it until it has moved clear. */
+  const followWithPusher = (at: { x: number; z: number }) => {
+    if (!physics.pushing) {
+      excluded = new Set(physics.bricksTouching(at.x, at.z));
+      for (const id of excluded) physics.setIgnoresPusher(id, true);
+    }
+    physics.setPusher(at);
+  };
+
   const onPointer = (report: PointerReport) => {
     pointer = report;
     lastInteractionAt = performance.now();
     const ray = report.position ? scene.rayAt(report.position.x, report.position.y) : null;
     const onPlane = ray ? rayToPlane(ray.origin, ray.direction, PUSHER_Y) : null;
     if (!ray || !onPlane || !fit) {
-      physics.setPusher(null);
-      hovered = null;
-      liftCenter = null;
-      scene.setParallaxTarget(0, 0);
+      setInteraction(transition(interaction, { type: 'leave' }, tool));
+      stopFollowing();
       wake();
       return;
     }
-    const slow = report.speedPxPerS <= PUSH.hoverMaxPxPerS;
-    hovered = hoverCandidate(
-      physics.brickAt(ray.origin, ray.direction),
-      // The overlap query only matters (and only costs) when the pointer is slow.
-      slow ? physics.bricksTouching(onPlane.x, onPlane.z) : [],
-      report.speedPxPerS,
-    );
-    physics.setPusher(report.state.kind === 'pushing' ? onPlane : null);
+    const under = physics.brickAt(ray.origin, ray.direction);
+    const { action } = report;
+    const event = action.type === 'press' ? { type: 'press' as const, on: under === null ? ('table' as const) : ('brick' as const) } : action;
+    setInteraction(transition(interaction, event, tool));
+
+    if (pusherActive(interaction)) followWithPusher(onPlane);
+    else physics.setPusher(null);
     updateExclusions();
-    liftCenter = null;
+    // Hovering is the Glove's only visible feedback, and touch has no hover.
+    hovered = tool === 'glove' && interaction.kind === 'hovering' && report.hovers ? under : null;
+
     if (!report.hovers) scene.setParallaxTarget(0, 0);
     if (ambient && report.hovers && report.position) {
       const { widthPx, heightPx } = fit.viewport;
       const a = parallaxAngles((report.position.x / widthPx) * 2 - 1, (report.position.y / heightPx) * 2 - 1);
       scene.setParallaxTarget(a.yaw, a.pitch);
-      liftCenter = onPlane;
     }
+    wake();
+  };
+
+  const setTool = (next: Tool) => {
+    if (next === tool) return;
+    tool = next;
+    setInteraction(AWAY);
+    stopFollowing();
+    updateExclusions();
     wake();
   };
 
@@ -320,7 +371,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     plan = planCascade({
       count: tier.brickCount + extra,
       area,
-      keepOut: keepOut ? inflate(keepOut, WALLS.cardMargin) : null,
+      keepOuts: keepOuts.map((k) => inflate(k, WALLS.cardMargin)),
       spawnHeight: fit.height * CASCADE.spawnHeightShare,
       seed: CASCADE.seed + round,
     });
@@ -355,16 +406,16 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     if (viewport.widthPx === 0 || viewport.heightPx === 0) return;
     if (fit?.viewport.widthPx === viewport.widthPx && fit.viewport.heightPx === viewport.heightPx) return;
 
-    fit = scene.resize(viewport);
+    const cam = scene.resize(viewport);
+    fit = cam;
     // The parallax can shift the view by this much: keep bricks (and the card margin) inside it.
     const shift = ambient ? parallaxMargin(fit.distance) : 0;
     const nextArea = playArea(fit.ground, shift);
-    const nextKeepOut = inflate(pixelRectToGround(relativeRect(els.card, els.host), fit), shift);
+    keepOuts = els.keepOuts.map((el) => inflate(pixelRectToGround(relativeRect(el, els.host), cam), shift));
     area = nextArea;
-    keepOut = nextKeepOut;
     const spawnHeight = fit.height * CASCADE.spawnHeightShare;
     physics.setGravity(gravityFor(spawnHeight));
-    physics.setWalls(wallLayout(nextArea, nextKeepOut, spawnHeight + WALLS.headroom));
+    physics.setWalls(wallLayout(nextArea, keepOuts, spawnHeight + WALLS.headroom));
 
     if (plan.length === 0) {
       startCascade();
@@ -396,7 +447,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     wake();
   };
   darkQuery.addEventListener('change', onTheme);
-  const input = attachPointerInput(els.canvas, { pushEnabled: true, onReport: onPointer });
+  const input = attachPointerInput(els.canvas, onPointer);
+  els.canvas.dataset['cursor'] = cursorFor();
   layout();
   await scene.precompile();
   ready = true;
@@ -404,6 +456,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
 
   return {
     replay: startCascade,
+    setTool,
     dispose() {
       cancelAnimationFrame(frame);
       clearInterval(idleTimer);

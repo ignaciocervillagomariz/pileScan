@@ -1,4 +1,4 @@
-/** Pure math for the ambient effects: camera parallax and the lift of bricks near the cursor. */
+/** Pure math for the ambient effects: camera parallax and frame-rate independent easing. */
 import { AMBIENT } from './config';
 
 const DEG = Math.PI / 180;
@@ -19,16 +19,6 @@ export function parallaxAngles(
 /** How far the parallax can shift the visible ground: walls and keep-out move in by this much. */
 export function parallaxMargin(cameraDistance: number, maxDeg: number = AMBIENT.parallaxMaxDeg): number {
   return cameraDistance * Math.tan(maxDeg * DEG);
-}
-
-/** Lift of a resting brick at `distance` studs from the cursor: full at 0, none at the radius. */
-export function liftAt(
-  distance: number,
-  cfg: Pick<typeof AMBIENT, 'liftHeight' | 'liftRadius'> = AMBIENT,
-): number {
-  if (distance >= cfg.liftRadius) return 0;
-  const t = 1 - distance / cfg.liftRadius;
-  return cfg.liftHeight * t * t * (3 - 2 * t);
 }
 
 /** Frame-rate independent exponential easing toward a target. */

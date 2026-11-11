@@ -96,6 +96,14 @@ export class Physics {
     return this.pusherTarget !== null;
   }
 
+  /** True while the pusher still travels toward the pointer (a still pusher pushes nothing). */
+  get pusherMoving(): boolean {
+    const target = this.pusherTarget;
+    if (!target) return false;
+    const p = this.pusher.translation();
+    return Math.hypot(target.x - p.x, target.z - p.z) > 1e-4;
+  }
+
   /**
    * Starts, moves or (with null) stops the pusher. When it starts it is teleported to the
    * pointer, so it never sweeps across the table from where it was parked.

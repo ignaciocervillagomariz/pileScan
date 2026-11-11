@@ -6,7 +6,7 @@ import { createRandom } from './random';
 
 const area = { minX: -24, maxX: 24, minZ: -14, maxZ: 14 };
 const keepOut = { minX: -20, maxX: -6, minZ: -6, maxZ: 6 };
-const input = { count: 35, area, keepOut, spawnHeight: 30, seed: 7 };
+const input = { count: 35, area, keepOuts: [keepOut], spawnHeight: 30, seed: 7 };
 
 describe('planCascade', () => {
   const plan = planCascade(input);
@@ -59,7 +59,7 @@ describe('planCascade on a phone', () => {
 
   it('never drops a brick inside the card keep-out, even when the free area is crowded', () => {
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      const plan = planCascade({ count: 15, area: phoneArea, keepOut: fullWidthCard, spawnHeight: 40, seed });
+      const plan = planCascade({ count: 15, area: phoneArea, keepOuts: [fullWidthCard], spawnHeight: 40, seed });
       for (const s of plan) {
         expect(contains(fullWidthCard, s.position.x, s.position.z)).toBe(false);
       }
@@ -67,7 +67,7 @@ describe('planCascade on a phone', () => {
   });
 
   it('still drops every brick when the keep-out covers the whole area', () => {
-    const plan = planCascade({ count: 5, area: phoneArea, keepOut: inflate(phoneArea, 5), spawnHeight: 40, seed: 1 });
+    const plan = planCascade({ count: 5, area: phoneArea, keepOuts: [inflate(phoneArea, 5)], spawnHeight: 40, seed: 1 });
     expect(plan).toHaveLength(5);
   });
 });

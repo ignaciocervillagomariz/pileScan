@@ -1,6 +1,7 @@
 /**
- * Pure pointer-speed measurement and the dead-zone rule. Speeds are in CSS px/s: they describe
- * the hand, so the same thresholds hold on every screen size.
+ * Pure pointer measurement: speed (for the debug overlay; the pusher's strength comes from
+ * following the pointer itself), whether the pointer moved at all, and what a touch gesture is
+ * for. Speeds are in CSS px/s: they describe the hand, so they hold on every screen size.
  */
 import { PUSH } from './config';
 
@@ -12,7 +13,10 @@ export interface PointerSample {
   readonly timeMs: number;
 }
 
-/** `still`: inside the dead zone (resting cursor). `moving`: anything faster pushes. */
+/**
+ * `still`: the pointer has not moved (no events for `PUSH.maxSampleGapMs`, or an event at the
+ * same spot). `moving`: any displacement at all. There is deliberately no speed threshold.
+ */
 export type Motion = 'still' | 'moving';
 
 /** Exponential moving average of the pointer speed, in px/s. */
@@ -49,14 +53,9 @@ export class PointerSpeed {
   }
 }
 
-/** Dead zone with hysteresis, so a cursor resting on a brick doesn't flicker into a push. */
-export function classifyMotion(
-  previous: Motion,
-  speedPxPerS: number,
-  cfg: Pick<typeof PUSH, 'deadZonePxPerS' | 'deadZoneExitShare'> = PUSH,
-): Motion {
-  const threshold = previous === 'moving' ? cfg.deadZonePxPerS * cfg.deadZoneExitShare : cfg.deadZonePxPerS;
-  return speedPxPerS > threshold ? 'moving' : 'still';
+/** Any displacement counts as movement, however slow: only a completely still pointer is ignored. */
+export function motionOf(dxPx: number, dyPx: number): Motion {
+  return dxPx !== 0 || dyPx !== 0 ? 'moving' : 'still';
 }
 
 /** What a touch gesture is for: undecided inside the slop, then a sideways push or a scroll. */
