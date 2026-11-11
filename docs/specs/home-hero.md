@@ -7,9 +7,9 @@ without thresholds, (2) Glove, (3) Separator. Owner of the implementation: singl
 session.
 
 ### Next steps
-1. Step 1: this spec, the mode dock, Push with no threshold. Then the owner checks Push with
-   a real mouse and trackpad on `http://127.0.0.1:4200/?debug=1` (check the build stamp first).
-2. Step 2: Glove (`snap.ts`, carry, ghost, stacking, drop).
+1. Done: step 1 (dock, Push with no threshold) and step 2 (Glove: carry, ghost, snap,
+   stacking, drop, R/wheel, touch long-press).
+2. Owner checks the Glove with real mouse, trackpad and phone.
 3. Step 3: Separator.
 4. Phase 5 (polish) after the owner's OK.
 
@@ -55,6 +55,18 @@ session.
   with the owner's mouse and trackpad still happens, after step 1.
 - **Lifted-brick shadow:** the held brick leaves the shadow map and gets a blob shadow whose
   size, softness and offset scale with height.
+- **Step 2 implementation notes (2026-11-12):**
+  - Stack height counts layers: two bricks side by side on one base make a stack of 2.
+  - A stack is one Rapier body with one collider per brick, in the bottom brick's frame.
+    Joining recreates the carried colliders on the target body (Rapier can't move a collider
+    between bodies).
+  - A snap target must be still (barely moving), not asleep: Rapier sleeps a body only after a
+    while, and a stack that was just built must accept the next brick right away.
+  - Touch: a sideways drag sweeps wherever it starts (the pusher lets the brick it starts on
+    pass until clear); only a hold grabs.
+  - Physics unit tests run real Rapier through `@dimforge/rapier3d-compat` (same version,
+    dev dependency only): the test runner can't load a separate `.wasm` file. `Physics`
+    receives the Rapier module, so the app keeps `@dimforge/rapier3d`.
 
 ## Goal
 A new home page whose hero is an interactive 3D scene: toy bricks rain down onto a surface,
