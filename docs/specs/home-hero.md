@@ -1,18 +1,17 @@
 # Spec: home page with interactive 3D brick hero
 
-Status (2026-11-09, end of day): phases 1–2 accepted; phase 3 (push) reworked after the owner
-reported "pushing doesn't work", **awaiting the owner's test with real trackpad and mouse input**.
-Phase 4 has not started and waits for the owner's OK. Owner of the implementation: single
-frontend session.
+Status (2026-11-11): phases 1–2 accepted. On 2026-11-11 the owner replaced the push design and
+phase 4 with a three-tool interaction model (see "Interaction model") and approved phase 4; the open calls were settled on 2026-11-12.
+It is built in three steps, each committed and shown to the owner: (1) mode dock and Push
+without thresholds, (2) Glove, (3) Separator. Owner of the implementation: single frontend
+session.
 
 ### Next steps
-1. Owner tests `http://127.0.0.1:4200/?debug=1` (stamp must read `ca6ce66` or later) with
-   trackpad and mouse: resting on a brick, slow nudge, fast shove; reads pointer speed,
-   ev/s and samples/event from the overlay.
-2. Tune `PUSH.deadZonePxPerS` (60) and `PUSH.hoverMaxPxPerS` (400) in
-   `frontend/src/app/home/hero/config.ts` from those numbers; rebuild the image with the stamp.
-3. Re-run the existing E2E suite (not run since the push redesign) and commit.
-4. Phase 4 (grab, lift, drag, rotate, snap, stacking) only after the owner confirms phase 3.
+1. Step 1: this spec, the mode dock, Push with no threshold. Then the owner checks Push with
+   a real mouse and trackpad on `http://127.0.0.1:4200/?debug=1` (check the build stamp first).
+2. Step 2: Glove (`snap.ts`, carry, ghost, stacking, drop).
+3. Step 3: Separator.
+4. Phase 5 (polish) after the owner's OK.
 
 ## Decisions (2026-11-08)
 - **Physics: keep Rapier.** Fast pushes against thin plates (0.4 units) need CCD, stacking
@@ -31,6 +30,7 @@ frontend session.
   `"start_url": "/scan"` (installed users want to scan). `/scan` must work offline through the
   service worker's navigation fallback. E2E tests are updated for the new routes.
 - **Picking up a stacked brick** takes it and everything above it, as a sub-stack.
+  *Replaced on 2026-11-12: the Glove carries the whole stack (see "Interaction model").*
 - **Phase 1 review (2026-11-09):** surface (b), the stronger grain and vignette, is the light
   surface; the warm charcoal stays for dark mode. The camera is tilted 7° from straight down.
   Studs on white and light grey bricks get a baked contact shade (a halo on the top face),
@@ -47,9 +47,12 @@ frontend session.
   (commit + time) in the console and in the `?debug=1` overlay, and verification runs against
   the URL the owner uses.
 - **Debug overlay (`?debug=1`):** build stamp, hero state and fallback reason, quality tier,
-  reduced motion, fps, pointer speed (px/s) and state, input rate and coalesced samples per
-  event, pusher position (also drawn in the scene), hover candidate, element under the pointer,
-  device pixel ratio.
+  reduced motion, fps, active tool, pointer speed (px/s) and state, input rate and coalesced
+  samples per event, pusher position (also drawn in the scene), hovered or carried brick,
+  element under the pointer, device pixel ratio.
+- **Interaction model (2026-11-11):** three tools (Glove, Push, Separator) replace the
+  speed-based push/hover split of phase 3, which is superseded. The real-input check of Push
+  with the owner's mouse and trackpad still happens, after step 1.
 - **Lifted-brick shadow:** the held brick leaves the shadow map and gets a blob shadow whose
   size, softness and offset scale with height.
 
@@ -86,45 +89,85 @@ fast and playful, and lead to a "Scan your pile" call to action.
    Invisible walls at the viewport edges keep them in view and update on resize.
 2. Settled view: top-down. The camera points straight down with a narrow perspective FOV
    (~30°) so height reads as depth. Show a 5–10° tilt as an alternative.
-3. Push (revised 2026-11-09, replaces the fast/slow split): any pointer movement over the
-   scene pushes. A kinematic capsule follows the pointer and real collisions do the rest, so
-   bricks slide, spin and can flip; the strength comes from the pointer's speed (slow moves
-   nudge, fast moves shove).
-   - A small dead zone (~60 px/s, with hysteresis) lets the cursor rest on a brick.
-   - Bricks must not flee from the cursor: under a slow pointer (≤ ~400 px/s) the brick under
-     the cursor, or else the nearest brick the capsule already touches, ignores the pusher
-     (collision groups). It is the hover/grab candidate for phase 4. It stays excluded until
-     the capsule no longer overlaps it.
-   - Pointer speeds are in CSS px/s (they describe the hand, so they need no viewport
-     scaling); the pusher speed is in studs/s, which already scales with the viewport.
-   - Touch: horizontal swipes push, vertical swipes scroll. All interaction pauses while the
-     page scrolls (the canvas moves under a still cursor) or the hero is off-screen.
-   - Ambient life, none of it with prefers-reduced-motion, all with render on demand:
-     1. Parallax: the camera orbits up to 1.5° toward the pointer (walls and the card
-        keep-out move in by the resulting shift).
-     2. Resting bricks near the cursor lift up to 1.5 mm and settle back (visual only).
-     3. Optional, off by default (`AMBIENT.idleDrop`): after ~10 s without interaction, one
-        brick drops in, at most every 12 s.
-4. Grab:
-   - Hovering a brick slowly highlights it (subtle outline, `cursor: grab`).
-   - Pressing on a brick picks it up. It becomes kinematic, rises toward the camera with an
-     ease-out, and rights itself studs-up. Its shadow grows softer and shifts, to sell the
-     height.
-   - While dragged, it follows the pointer with a slight lag and tilts in the direction of
-     movement. R or the mouse wheel rotates it 90°.
-5. Stack:
-   - While dragging over an upright, settled brick, compute the nearest valid position on its
-     stud grid: at least one stud overlapping, rotation in 90° steps, no overlap with other
-     bricks. Show a translucent ghost there.
-   - Release on a valid spot: the brick snaps down with a small bounce and joins the same
-     rigid body (compound body, detached again when picked up).
-   - Release elsewhere: it drops and physics takes over.
-   - Maximum stack height: 6.
-6. Replay: a small icon button restarts the cascade.
+3. Interaction: three tools in a mode dock (see "Interaction model" below).
+4. Replay: an icon button in the dock restarts the cascade.
 
-Touch: there is no hover. A swipe pushes and a long-press (~300 ms) on a brick grabs it. Page
-scrolling must keep working when nobody is interacting (touch-action: pan-y until a grab
-starts).
+## Interaction model
+Decided 2026-11-11. It replaces the earlier push design (the 60 px/s dead zone and the
+400 px/s hover exclusion) and the earlier grab/stack description. There are no speed thresholds
+anywhere: a brick is carried because it was pressed, not because the pointer moved slowly.
+
+### Dock
+- A radio group with three tools (Glove, Push, Separator), plus Replay.
+- Top-right on desktop; on phones, wherever the thumb reaches it best.
+- One tool is always active, shown with `aria-pressed` and a clear visual state. Esc returns
+  to the Glove.
+- A one-line hint near the dock describes the active tool and fades after the first
+  interaction.
+- Real buttons with labels and tooltips. The dock is `role="group"` with toggle buttons,
+  exactly one of them `aria-pressed="true"` (valid ARIA for toggle buttons; radios would use
+  `aria-checked`).
+- On phones the dock sits bottom-right of the hero; bricks keep out of the area under it, as
+  they do for the card.
+
+### 1. Glove (default on load)
+- A built stack is one object: the Glove always carries the whole stack a brick belongs to,
+  wherever it is pressed. Only the Separator takes stacks apart (decided 2026-11-12, replacing
+  the 2026-11-08 sub-stack rule). A loose brick is a stack of one.
+- Hover never moves anything. The stack under the cursor is highlighted and lifts 1–2 mm, and
+  the cursor is an open glove.
+- Press on a brick and drag to carry its stack (closed glove):
+  - The stack moves as one. It is kinematic and in a collision group that ignores the other bricks. The walls only
+    clamp its position.
+  - It flies at the highest top surface under its footprint plus about one brick of
+    clearance. It rights itself studs-up and tilts slightly with the movement, and its shadow
+    shows where it is.
+  - R or the mouse wheel rotates it 90°.
+- Snapping uses stud-grid math (`snap.ts`), not physics. A carried stack snaps by its bottom
+  brick's footprint. The ghost shows the nearest valid position on the topmost brick
+  underneath: at least one stud overlapping, 90° steps, no overlap with other bricks, and at
+  most 6 bricks in the combined stack.
+- Release on a valid target: the carried stack animates down with a small bounce and joins
+  that stack's compound body. Release with no valid target: it drops from carry height and
+  collides normally, so it lands on the table or on whatever is under it, and never passes
+  through a brick (decided 2026-11-12; a small bump on landing is fine).
+- Press on the empty table and drag to sweep. A pusher exists only while the button is held,
+  its strength comes from the pointer's velocity, and a soft contact ring shows on the table
+  under the cursor.
+- Touch: a long-press (~250 ms) on a brick grabs it; a horizontal drag starting on the table
+  sweeps; vertical drags scroll the page.
+
+### 2. Push (normal cursor)
+- Any pointer movement over the scene pushes, with strength from the pointer's velocity
+  (a kinematic capsule follows the pointer and real collisions do the rest). Only a
+  completely still pointer is ignored. `PUSH.deadZonePxPerS` and `PUSH.hoverMaxPxPerS` are
+  removed.
+- This mode never grabs.
+- Touch: horizontal swipes push, vertical swipes scroll.
+
+### 3. Separator (an orange pry tool)
+- The cursor becomes the tool.
+- Clicking a brick in a stack splits the stack at the connection below that brick. The brick
+  and everything above it pop off together as one piece, with a small upward impulse, a
+  slight spin and a short pop animation.
+- If the clicked brick is the bottom one, split at the connection above it instead.
+- Clicking a loose brick gives a small shake as feedback and nothing else.
+- Touch: tap.
+
+### Shared rules
+- Pointer speeds are in CSS px/s (they describe the hand); pusher speeds are in studs/s.
+- Page scrolling keeps working when nobody is interacting (`touch-action: pan-y` until a grab
+  starts). All interaction pauses while the page scrolls or the hero is off-screen.
+- Ambient life, none of it with prefers-reduced-motion, all with render on demand: the
+  Glove's hover lift (the earlier radius-based lift of nearby bricks is removed; Push has no
+  lift), camera parallax up to 1.5° toward the pointer (walls and the card keep-out move in by the resulting
+  shift), and the optional idle drop (`AMBIENT.idleDrop`, off by default).
+
+### Visuals and accessibility
+- Icons and cursors are our own original drawings: a generic white cartoon glove with no
+  resemblance to any existing character, a generic orange separator, and a push icon. No
+  logos.
+- Cursors are 32×32 with correct hotspots.
 
 ## Surface
 Decided (2026-11-08): **solid matte light warm grey** with very subtle grain and a soft
@@ -161,7 +204,7 @@ vignette. A plain surface echoes the app's photo tip and keeps the focus on the 
 - `hero/scene.ts`: renderer, camera, lights, surface
 - `hero/bricks.ts`: catalog, geometry, materials, palette
 - `hero/physics.ts`: Rapier world, bodies, walls, sleeping
-- `hero/interaction.ts`: pointer state machine (idle → push → hover → dragging → snapping)
+- `hero/interaction.ts`: pointer state machine per tool (see "Interaction model")
 - `hero/snap.ts`: pure stud-grid math
 - `hero/quality.ts`: device tiers
 - `hero/config.ts`: every tunable number in one place
@@ -171,8 +214,10 @@ After each phase, stop and wait for the owner's OK. Save screenshots or a short 
 `.hero-review/` (git-ignored), and report the file paths plus fps figures.
 1. Static scene: surface options, lighting, brick models, camera. Owner chooses the surface.
 2. Cascade, settling, walls, resize, quality tiers.
-3. Push (mouse and touch).
-4. Grab, lift, drag, rotate, snap and stacking.
+3. Push (mouse and touch). Superseded on 2026-11-11 by the interaction model.
+4. Interaction model, in three steps with a commit and an owner check after each:
+   (1) mode dock and Push with no threshold, (2) Glove: carry, rotate, snap and stacking,
+   drop, sweep, (3) Separator.
 5. Polish: reduced motion, fallback, performance, accessibility, tests, and a 10–15 s
    recording for the README.
 
@@ -186,8 +231,17 @@ estimate, a routing proposal, the interaction state machine, the test approach a
 risks. Wait for approval.
 
 ## Done when
-- Unit tests cover `snap.ts`, the push-vs-grab pointer classifier, the quality tiers and the
-  wall layout.
+- Unit tests cover `snap.ts`, the interaction state machine, the quality tiers and the wall
+  layout, and in particular:
+  - press on a brick vs. press on the table
+  - carrying a brick over others moves none of them
+  - a carried stack moves as one
+  - the snap target is the topmost brick
+  - snapping a stack respects the combined height limit
+  - an invalid release drops onto the table
+  - Push has no threshold
+  - the separator splits at the right connection, handles the bottom brick, and only shakes
+    a loose brick
 - E2E tests: home renders, the CTA opens the capture flow, the reduced-motion path works, the
   no-WebGL fallback shows, and the existing E2E suite is still green.
 - Lighthouse on home shows no regression in performance or accessibility (numbers recorded).
