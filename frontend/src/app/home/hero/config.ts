@@ -174,5 +174,34 @@ export const GLOVE = {
   liftRate: 10,
 } as const;
 
+/** Carrying, snapping and stacking with the Glove (see snap.ts for the rules). */
+export const CARRY = {
+  /** Free space under a carried stack: about one brick, so it passes over stacks. */
+  clearance: DIMENSIONS.brickHeight,
+  /** A brick tilted more than this is not a snap target (and is not "studs up"). */
+  uprightMaxDeg: 10,
+  /** Layers in a stack, the carried one included. */
+  maxStackHeight: 6,
+  /** Overlaps smaller than this (studs) are touching, not colliding. */
+  overlapMargin: 0.05,
+  /** Easing rates, per second: following the pointer (a slight lag), height, turning. */
+  followRate: 22,
+  heightRate: 14,
+  turnRate: 16,
+  /** Tilt toward the movement, at most this much; reached at `tiltFullSpeed` studs/s. */
+  tiltMaxDeg: 8,
+  tiltFullSpeed: 25,
+  /** Snap: the stack drops onto its target, then a small bounce (studs) and settles. */
+  snapSeconds: 0.24,
+  bounceHeight: 0.12,
+  /** Touch: holding still this long on a brick grabs it. */
+  longPressMs: 250,
+  /** Mouse wheel: one quarter turn per this much scrolling (trackpads send many small events). */
+  wheelStepPx: 60,
+  /** Blob shadow under a carried stack: darkness at rest height, and how it fades with height. */
+  blobOpacity: 0.32,
+  blobFadePerStud: 0.12,
+} as const;
+
 /** The ?debug=1 overlay refreshes at most this often. */
 export const DEBUG = { refreshMs: 100 } as const;

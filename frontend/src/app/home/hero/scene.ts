@@ -3,6 +3,7 @@
  * vignette) is CSS behind a transparent canvas, so the fallback and the 3D scene look the same.
  */
 import {
+  CanvasTexture,
   CapsuleGeometry,
   Color,
   DirectionalLight,
@@ -29,7 +30,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { approach, settled } from './ambient';
 import { buildShapeGeometry, createBrickMaterial } from './bricks';
 import { PALETTE, SHAPES } from './catalog';
-import { AMBIENT, CAMERA, LIGHTING, PUSH } from './config';
+import { AMBIENT, CAMERA, CARRY, LIGHTING, PUSH } from './config';
 import { CameraFit, fitCamera, Viewport } from './layout';
 import { measure, measureAsync } from './perf';
 import { Quat, Vec3 } from './pose';
@@ -51,9 +52,56 @@ export interface BrickLook {
 interface Slot {
   readonly mesh: InstancedMesh;
   readonly index: number;
+  readonly look: BrickLook;
 }
 
+/** A brick drawn outside its instanced mesh: carried (no shadow of its own) or a ghost. */
+export interface PlacedBrick {
+  readonly id: number;
+  readonly position: Vec3;
+  readonly rotation: Quat;
+}
+
+/** The soft shadow under a carried stack, on whatever surface is under it. */
+export interface BlobShadow {
+  readonly x: number;
+  readonly z: number;
+  /** Height of the surface it lies on. */
+  readonly surfaceY: number;
+  readonly width: number;
+  readonly depth: number;
+  readonly yaw: number;
+  /** How far the stack's bottom is above that surface. */
+  readonly height: number;
+}
+
+/** Hovered stacks are tinted this far toward white. */
+const HIGHLIGHT = 0.16;
+/** Ghost bricks at the snap target. */
+const GHOST_OPACITY = 0.38;
+
 const HIDDEN = new Matrix4().makeScale(0, 0, 0);
+const WHITE = new Color(1, 1, 1);
+
+/** A soft round shadow: opaque in the middle, fading to nothing at the edge. */
+function blobTexture(): CanvasTexture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext('2d');
+  if (g) {
+    const r = size / 2;
+    const gradient = g.createRadialGradient(r, r, 0, r, r, r);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, size, size);
+  }
+  // The map's color multiplies the black material, so only its alpha matters.
+  return new CanvasTexture(canvas);
+}
 
 export class HeroScene {
   private readonly renderer: WebGLRenderer;
@@ -82,6 +130,14 @@ export class HeroScene {
   private readonly ndc = new Vector2();
   /** ?debug=1 only: wireframe of the pusher capsule. */
   private debugPusher: Mesh | null = null;
+  /** Carried bricks: drawn as plain meshes so they cast no shadow (the blob shows where they are). */
+  private readonly carried = new Map<number, Mesh>();
+  private readonly ghosts = new Map<number, Mesh>();
+  private readonly solidMaterials = new Map<number, MeshPhysicalMaterial>();
+  private readonly ghostMaterials = new Map<number, MeshPhysicalMaterial>();
+  private readonly blob: Mesh;
+  private readonly blobMaterial: MeshBasicMaterial;
+  private highlighted = new Set<number>();
 
   constructor(canvas: HTMLCanvasElement, options: SceneOptions) {
     const { tier } = options;
@@ -115,6 +171,18 @@ export class HeroScene {
 
     this.material = createBrickMaterial(tier.clearcoat);
     this.studSegments = tier.studSegments;
+
+    this.blobMaterial = new MeshBasicMaterial({
+      color: 0x000000,
+      map: blobTexture(),
+      transparent: true,
+      depthWrite: false,
+      opacity: 0,
+    });
+    this.blob = new Mesh(new PlaneGeometry(1, 1), this.blobMaterial);
+    this.blob.rotation.order = 'YXZ';
+    this.blob.rotation.x = -Math.PI / 2;
+    this.scene.add(this.blob);
   }
 
   /**
@@ -143,7 +211,16 @@ export class HeroScene {
    * links them off the main thread; otherwise the first render would compile them in one block.
    */
   precompile(): Promise<void> {
-    return measureAsync('compile', () => this.renderer.compileAsync(this.scene, this.camera).then(() => undefined));
+    // Stand-ins for a carried brick and a ghost, so their shaders compile now and the first
+    // grab doesn't stall on a shader compile.
+    const geometry = this.geometries.values().next().value;
+    const standIns = geometry
+      ? [new Mesh(geometry, this.solidMaterial(0)), new Mesh(geometry, this.ghostMaterial(0))]
+      : [];
+    for (const m of standIns) this.scene.add(m);
+    return measureAsync('compile', () => this.renderer.compileAsync(this.scene, this.camera)).then(() => {
+      for (const m of standIns) this.scene.remove(m);
+    });
   }
 
   /** Pixel ratio and shadow cost; called again when the runtime downgrades the tier. */
@@ -261,6 +338,11 @@ export class HeroScene {
     }
     this.meshes.clear();
     this.slots.length = 0;
+    this.setCarried([]);
+    for (const mesh of this.ghosts.values()) this.scene.remove(mesh);
+    this.ghosts.clear();
+    this.highlighted.clear();
+    this.setBlobShadow(null);
 
     const counts = new Map<string, number>();
     for (const b of bricks) counts.set(b.shapeId, (counts.get(b.shapeId) ?? 0) + 1);
@@ -284,7 +366,7 @@ export class HeroScene {
       next.set(b.shapeId, index + 1);
       mesh.setMatrixAt(index, HIDDEN);
       mesh.setColorAt(index, this.colors[b.colorIndex]);
-      this.slots.push({ mesh, index });
+      this.slots.push({ mesh, index, look: b });
     }
     for (const mesh of this.meshes.values()) {
       mesh.instanceMatrix.needsUpdate = true;
@@ -292,14 +374,111 @@ export class HeroScene {
     }
   }
 
-  /** `lift` raises the brick visually only (the ambient hover hint); physics is unaffected. */
+  /** `lift` raises the brick visually only (the Glove's hover hint); physics is unaffected. */
   setPose(id: number, position: Vec3, rotation: Quat, lift = 0): void {
     const slot = this.slots[id];
     if (!slot) return;
+    const carried = this.carried.get(id);
+    if (carried) {
+      carried.position.set(position.x, position.y, position.z);
+      carried.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+      return;
+    }
     this.position.set(position.x, position.y + lift, position.z);
     this.rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
     slot.mesh.setMatrixAt(slot.index, this.matrix.compose(this.position, this.rotation, this.unitScale));
     this.dirty.add(slot.mesh);
+  }
+
+  /**
+   * Draws these bricks as carried: out of the instanced meshes and out of the shadow map (the
+   * blob shadow takes over). An empty list puts every carried brick back.
+   */
+  setCarried(ids: readonly number[]): void {
+    for (const [id, mesh] of this.carried) {
+      if (ids.includes(id)) continue;
+      this.scene.remove(mesh);
+      this.carried.delete(id);
+    }
+    for (const id of ids) {
+      const slot = this.slots[id];
+      if (!slot || this.carried.has(id)) continue;
+      const mesh = new Mesh(slot.mesh.geometry, this.solidMaterial(slot.look.colorIndex));
+      mesh.receiveShadow = true;
+      this.carried.set(id, mesh);
+      this.scene.add(mesh);
+      slot.mesh.setMatrixAt(slot.index, HIDDEN);
+      this.dirty.add(slot.mesh);
+    }
+  }
+
+  /** Translucent copies of the carried bricks at their snap target; null hides them. */
+  setGhost(bricks: readonly PlacedBrick[] | null): void {
+    const shown = new Set(bricks?.map((b) => b.id) ?? []);
+    for (const [id, mesh] of this.ghosts) mesh.visible = shown.has(id);
+    for (const b of bricks ?? []) {
+      const slot = this.slots[b.id];
+      if (!slot) continue;
+      let mesh = this.ghosts.get(b.id);
+      if (!mesh) {
+        mesh = new Mesh(slot.mesh.geometry, this.ghostMaterial(slot.look.colorIndex));
+        mesh.renderOrder = 1;
+        this.ghosts.set(b.id, mesh);
+        this.scene.add(mesh);
+      }
+      mesh.visible = true;
+      mesh.position.set(b.position.x, b.position.y, b.position.z);
+      mesh.quaternion.set(b.rotation.x, b.rotation.y, b.rotation.z, b.rotation.w);
+    }
+  }
+
+  setBlobShadow(blob: BlobShadow | null): void {
+    if (!blob) {
+      this.blobMaterial.opacity = 0;
+      return;
+    }
+    // Higher means softer, larger and fainter, like a real shadow under a lifted object.
+    const spread = 1 + blob.height * 0.25;
+    this.blob.position.set(blob.x, blob.surfaceY + 0.01, blob.z);
+    this.blob.rotation.y = blob.yaw;
+    this.blob.scale.set((blob.width + 0.6) * spread, (blob.depth + 0.6) * spread, 1);
+    this.blobMaterial.opacity = CARRY.blobOpacity * Math.exp(-CARRY.blobFadePerStud * blob.height);
+  }
+
+  /** Tints the hovered stack's bricks slightly toward white. */
+  setHighlight(ids: ReadonlySet<number>): void {
+    const changed = [...this.highlighted, ...ids].filter((id) => this.highlighted.has(id) !== ids.has(id));
+    this.highlighted = new Set(ids);
+    for (const id of changed) {
+      const slot = this.slots[id];
+      if (!slot) continue;
+      const base = this.colors[slot.look.colorIndex];
+      slot.mesh.setColorAt(slot.index, ids.has(id) ? base.clone().lerp(WHITE, HIGHLIGHT) : base);
+      if (slot.mesh.instanceColor) slot.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  private solidMaterial(colorIndex: number): MeshPhysicalMaterial {
+    let m = this.solidMaterials.get(colorIndex);
+    if (!m) {
+      m = this.material.clone();
+      m.color.copy(this.colors[colorIndex]);
+      this.solidMaterials.set(colorIndex, m);
+    }
+    return m;
+  }
+
+  private ghostMaterial(colorIndex: number): MeshPhysicalMaterial {
+    let m = this.ghostMaterials.get(colorIndex);
+    if (!m) {
+      m = this.material.clone();
+      m.color.copy(this.colors[colorIndex]);
+      m.transparent = true;
+      m.opacity = GHOST_OPACITY;
+      m.depthWrite = false;
+      this.ghostMaterials.set(colorIndex, m);
+    }
+    return m;
   }
 
   render(): void {
@@ -317,6 +496,10 @@ export class HeroScene {
     for (const mesh of this.meshes.values()) mesh.dispose();
     for (const geometry of this.geometries.values()) geometry.dispose();
     this.material.dispose();
+    for (const m of [...this.solidMaterials.values(), ...this.ghostMaterials.values()]) m.dispose();
+    this.blob.geometry.dispose();
+    this.blobMaterial.map?.dispose();
+    this.blobMaterial.dispose();
     this.groundMaterial.dispose();
     if (this.debugPusher) {
       this.debugPusher.geometry.dispose();

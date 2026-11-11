@@ -56,7 +56,9 @@ the active tool, fps, pointer speed (px/s) and interaction state, input rate and
 samples per event, the pusher (also drawn as a red wireframe in the scene), the hovered brick,
 how many bricks are still clearing a freshly placed pusher, and the element under the pointer.
 Tunables live in `src/app/home/hero/config.ts`. The tools (Glove, Push, Separator) are specified
-in `docs/specs/home-hero.md`.
+in `docs/specs/home-hero.md`; the overlay's `carry` row shows the carried stack and its snap
+target. The physics unit tests run real Rapier via the dev dependency
+`@dimforge/rapier3d-compat` (the test runner can't load the app's separate `.wasm`).
 
 ## Structure
 

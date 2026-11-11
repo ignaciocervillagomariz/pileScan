@@ -39,10 +39,16 @@ describe('interaction: Glove', () => {
     expect(transition(sweeping, { type: 'release' }, 'glove').kind).toBe('hovering');
   });
 
-  it('a press on a brick never sweeps', () => {
-    const state = run('glove', [still, { type: 'press', on: 'brick' }, moving]);
-    expect(state.kind).toBe('hovering');
+  it('a press on a brick carries it (never sweeps) until the button is released', () => {
+    const state = run('glove', [still, { type: 'press', on: 'brick' }, moving, still]);
+    expect(state.kind).toBe('carrying');
     expect(pusherActive(state)).toBe(false);
+    expect(transition(state, { type: 'release' }, 'glove').kind).toBe('hovering');
+  });
+
+  it('press on a brick vs. press on the table: carry vs. sweep', () => {
+    expect(run('glove', [{ type: 'press', on: 'brick' }]).kind).toBe('carrying');
+    expect(run('glove', [{ type: 'press', on: 'table' }]).kind).toBe('sweeping');
   });
 });
 

@@ -1,12 +1,14 @@
 /**
  * The pointer state machine, as a pure reducer. The active tool decides what a move or a press
- * means; there are no speed thresholds anywhere. Step 1 of phase 4 covers Push and the Glove's
- * hover and sweep; carrying (Glove) and prying (Separator) are added in steps 2 and 3.
+ * means; there are no speed thresholds anywhere: a stack is carried because it was pressed.
  *
  *   Push:       away --move--> resting <--still / moving--> pushing
  *   Glove:      away --move--> hovering --press on table--> sweeping --release--> hovering
+ *                                       --press on brick--> carrying --release--> hovering
  *   Separator:  away --move--> hovering
  *   Any tool:   leave, cancel (page scroll, browser gesture) or a tool change --> away
+ *
+ * What happens to a carried stack when carrying ends (snap or drop) is the hero's job.
  */
 import { Motion } from './pointer-classifier';
 import { Tool } from './tools';
@@ -21,7 +23,9 @@ export type InteractionState =
   /** Glove or Separator: over the scene, nothing moves; the brick under the cursor is hovered. */
   | { readonly kind: 'hovering' }
   /** Glove: the button was pressed on the table and is held; the pusher follows the pointer. */
-  | { readonly kind: 'sweeping' };
+  | { readonly kind: 'sweeping' }
+  /** Glove: the button was pressed on a brick and is held; its whole stack follows the pointer. */
+  | { readonly kind: 'carrying' };
 
 /** What a press landed on, decided by a ray cast from the camera. */
 export type PressTarget = 'brick' | 'table';
@@ -41,6 +45,7 @@ const RESTING: InteractionState = { kind: 'resting' };
 const PUSHING: InteractionState = { kind: 'pushing' };
 const HOVERING: InteractionState = { kind: 'hovering' };
 const SWEEPING: InteractionState = { kind: 'sweeping' };
+const CARRYING: InteractionState = { kind: 'carrying' };
 
 export function transition(state: InteractionState, event: InteractionEvent, tool: Tool): InteractionState {
   if (event.type === 'leave' || event.type === 'cancel') return AWAY;
@@ -50,10 +55,10 @@ export function transition(state: InteractionState, event: InteractionEvent, too
       if (event.type !== 'move') return state.kind === 'away' ? RESTING : state;
       return event.motion === 'moving' ? PUSHING : RESTING;
     case 'glove':
-      if (event.type === 'press') return event.on === 'table' ? SWEEPING : HOVERING;
+      if (event.type === 'press') return event.on === 'table' ? SWEEPING : CARRYING;
       if (event.type === 'release') return HOVERING;
-      // Moving never pushes; only a held press on the table sweeps.
-      return state.kind === 'sweeping' ? SWEEPING : HOVERING;
+      // Moving never pushes by itself: only a held press sweeps or carries.
+      return state.kind === 'sweeping' || state.kind === 'carrying' ? state : HOVERING;
     case 'separator':
       return HOVERING;
   }

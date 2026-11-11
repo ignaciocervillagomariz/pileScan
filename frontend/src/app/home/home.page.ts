@@ -88,6 +88,10 @@ export class HomePage implements OnDestroy {
           ? `${d.hovered ? `#${d.hovered.id} at ${d.hovered.x.toFixed(2)}, ${d.hovered.z.toFixed(2)}` : '-'} · clearing pusher ${d.excluded}`
           : '-',
       },
+      {
+        label: 'carry',
+        value: d?.carry ? `${d.carry.bricks} brick(s) · target ${d.carry.target === null ? '-' : `#${d.carry.target}`}` : '-',
+      },
       { label: 'under pointer', value: this.elementUnderPointer() },
       { label: 'dpr', value: String(window.devicePixelRatio) },
     ];
