@@ -7,11 +7,9 @@ without thresholds, (2) Glove, (3) Separator. Owner of the implementation: singl
 session.
 
 ### Next steps
-1. Done: step 1 (dock, Push with no threshold) and step 2 (Glove: carry, ghost, snap,
-   stacking, drop, R/wheel, touch long-press).
-2. Owner checks the Glove with real mouse, trackpad and phone.
-3. Step 3: Separator.
-4. Phase 5 (polish) after the owner's OK.
+1. Done: step 1 (dock, Push with no threshold), step 2 (Glove) and step 3 (Separator).
+2. Owner checks all three tools with real mouse, trackpad and phone.
+3. Phase 5 (polish) after the owner's OK.
 
 ## Decisions (2026-11-08)
 - **Physics: keep Rapier.** Fast pushes against thin plates (0.4 units) need CCD, stacking
@@ -64,6 +62,11 @@ session.
     while, and a stack that was just built must accept the next brick right away.
   - Touch: a sideways drag sweeps wherever it starts (the pusher lets the brick it starts on
     pass until clear); only a hold grabs.
+  - Step 3 (Separator): hovering highlights exactly what a click would pop off (nothing on a
+    loose brick). On a bottom brick with several bricks standing on it, each of them comes
+    off with what is above it, as separate pieces. The pop speed is derived from the scene's
+    gravity so the piece always rises about 1.6 studs. Friction with the spinning piece may
+    drag the remaining stack by a fraction of a millimetre.
   - Physics unit tests run real Rapier through `@dimforge/rapier3d-compat` (same version,
     dev dependency only): the test runner can't load a separate `.wasm` file. `Physics`
     receives the Rapier module, so the app keeps `@dimforge/rapier3d`.
