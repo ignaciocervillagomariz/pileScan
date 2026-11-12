@@ -63,6 +63,25 @@ export class Stacks {
     return target;
   }
 
+  /**
+   * Takes `root` and every brick above it out of its stack, as a new stack whose id is `root`.
+   * Returns the new stack's bricks, `root` first.
+   */
+  split(root: number): number[] {
+    const stack = this.stackOf(root);
+    const base = this.member(root);
+    if (stack === null || base === null || base.parent === null) throw new Error('Invalid split');
+    const piece = [root, ...this.above(root)];
+    const inPiece = new Set(piece);
+    const moved = this.membersOf(stack)
+      .filter((m) => inPiece.has(m.id))
+      .map((m) => ({ id: m.id, parent: m.id === root ? null : m.parent, level: m.level - base.level }));
+    this.members.set(stack, this.membersOf(stack).filter((m) => !inPiece.has(m.id)));
+    this.members.set(root, moved);
+    for (const id of piece) this.stackOfBrick.set(id, root);
+    return [root, ...moved.filter((m) => m.id !== root).map((m) => m.id)];
+  }
+
   /** Every brick that rests on `id`, directly or through others (not `id` itself). */
   above(id: number): number[] {
     const stack = this.stackOf(id);

@@ -296,36 +296,74 @@ export class Physics {
 
   /**
    * Joins a lifted stack to another stack's body, keeping every brick exactly where it is now.
-   * Rapier can't move a collider to another body, so each one is recreated on the target.
+   * The joined stack becomes dynamic again with the target.
    */
   mergeStack(carried: number, into: number): void {
     const from = this.bodies.get(carried);
     const to = this.bodies.get(into);
     if (!from || !to || from === to) return;
+    const ids: number[] = [];
+    this.forEachCollider(from, (c) => {
+      const id = this.brickByCollider.get(c.handle);
+      if (id !== undefined) ids.push(id);
+    });
+    this.moveColliders(ids, from, to);
+    this.world.removeRigidBody(from);
+    this.bodies.delete(carried);
+    to.wakeUp();
+  }
+
+  /**
+   * Takes these bricks (the piece's bottom brick first) out of their stack's body into a new
+   * dynamic body with the piece's bottom brick's frame, and sets it moving: the Separator's pop.
+   */
+  splitStack(piece: readonly number[], velocity: { readonly linvel: Vec3; readonly angvel: Vec3 }): void {
+    const root = piece[0];
+    const from = this.colliders.get(root)?.parent();
+    const position = this.position(root);
+    const rotation = this.rotation(root);
+    if (!from || !position || !rotation || from.isKinematic()) return;
+    const body = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(position.x, position.y, position.z)
+        .setRotation(rotation)
+        .setLinearDamping(PHYSICS.linearDamping)
+        .setAngularDamping(PHYSICS.angularDamping)
+        .setCcdEnabled(true),
+    );
+    this.moveColliders(piece, from, body);
+    this.bodies.set(root, body);
+    body.setLinvel(velocity.linvel, true);
+    body.setAngvel(velocity.angvel, true);
+    from.wakeUp();
+  }
+
+  /**
+   * Moves bricks' colliders from one body to another without moving the bricks. Rapier can't
+   * re-parent a collider, so each one is recreated on the target body.
+   */
+  private moveColliders(ids: readonly number[], from: Rapier.RigidBody, to: Rapier.RigidBody): void {
     const fromPos = from.translation();
     const fromRot = from.rotation();
     const toPos = to.translation();
     const toRot = to.rotation();
-    const moved: { id: number; local: Vec3; rotation: Quat }[] = [];
-    this.forEachCollider(from, (c) => {
-      const id = this.brickByCollider.get(c.handle);
-      const offset = c.translationWrtParent();
-      const turn = c.rotationWrtParent();
-      if (id === undefined || !offset || !turn) return;
+    for (const id of ids) {
+      const old = this.colliders.get(id);
+      const offset = old?.translationWrtParent();
+      const turn = old?.rotationWrtParent();
+      if (!old || !offset || !turn) continue;
       const world = toWorld(fromPos, fromRot, offset);
-      moved.push({ id, local: toLocal(toPos, toRot, world), rotation: multiplyQuat(conjugate(toRot), multiplyQuat(fromRot, turn)) });
-    });
-    for (const m of moved) {
-      const old = this.colliders.get(m.id);
-      if (old) {
-        this.brickByCollider.delete(old.handle);
-        this.world.removeCollider(old, false);
-      }
-      this.attachCollider(m.id, to, m.local, m.rotation);
+      const local = toLocal(toPos, toRot, world);
+      const rotation = multiplyQuat(conjugate(toRot), multiplyQuat(fromRot, turn));
+      this.brickByCollider.delete(old.handle);
+      this.world.removeCollider(old, false);
+      this.attachCollider(id, to, local, rotation);
     }
-    this.world.removeRigidBody(from);
-    this.bodies.delete(carried);
-    to.wakeUp();
+  }
+
+  /** The scene's gravity (studs/s², pointing down). */
+  get gravity(): number {
+    return -this.world.gravity.y;
   }
 
   private forEachCollider(body: Rapier.RigidBody, visit: (c: Rapier.Collider) => void): void {

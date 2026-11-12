@@ -8,7 +8,7 @@ import * as RAPIER from '@dimforge/rapier3d';
 import { approach, parallaxAngles, parallaxMargin, settled } from './ambient';
 import { Carry } from './carry';
 import { footprintRadius, gravityFor, planCascade, Spawn } from './cascade';
-import { ADAPTIVE, AMBIENT, CARRY, CASCADE, DEBUG, GLOVE, PHYSICS, PUSH, WALLS } from './config';
+import { ADAPTIVE, AMBIENT, CARRY, CASCADE, DEBUG, GLOVE, PHYSICS, PUSH, SEPARATOR, WALLS } from './config';
 import { FrameStats } from './frame-stats';
 import {
   CameraFit,
@@ -29,7 +29,8 @@ import { Physics, PUSHER_Y } from './physics';
 import { attachPointerInput, PointerReport, PointerStats, PressKind } from './pointer-input';
 import { nextExclusions } from './push-rules';
 import { QualityTier, TIERS } from './quality';
-import { HeroScene, Theme } from './scene';
+import { BrickEffect, HeroScene, Theme } from './scene';
+import { popScale, popVelocity, separatorAction, shakeAt } from './separate';
 import { Stacks } from './stacks';
 import { DEFAULT_TOOL, Tool } from './tools';
 
@@ -132,9 +133,16 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   let tool: Tool = DEFAULT_TOOL;
   let interaction: InteractionState = AWAY;
   let pointer: PointerReport | null = null;
-  /** Glove: the brick under a hovering mouse or pen; its whole stack lifts slightly (never moves). */
+  /**
+   * The brick under a hovering mouse or pen. Glove: its whole stack is highlighted and lifts
+   * slightly (never moves). Separator: the piece a click would pop off is highlighted.
+   */
   let hovered: number | null = null;
-  let hoveredStack = new Set<number>();
+  let hoverLifted = new Set<number>();
+  /** Separator animations, seconds since they started: the popped piece swells, a loose brick shakes. */
+  const pops = new Map<number, number>();
+  const shakes = new Map<number, number>();
+  let spinSign: 1 | -1 = 1;
   /** Trackpads send many small wheel events: a quarter turn per this much scrolling. */
   let wheelSum = 0;
   const stacks = new Stacks();
@@ -227,7 +235,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     let animating = false;
     physics.forEachPose((id) => {
       const current = lifts.get(id) ?? 0;
-      const target = hoveredStack.has(id) && physics.isSleeping(id) ? GLOVE.hoverLift : 0;
+      const target = hoverLifted.has(id) && physics.isSleeping(id) ? GLOVE.hoverLift : 0;
       if (settled(current, target, 1e-4)) {
         if (target === 0) lifts.delete(id);
         else lifts.set(id, target);
@@ -286,9 +294,10 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     const lifting = ambient && updateLifts(dt);
     const orbiting = ambient && scene.updateParallax(dt);
     const carried = new Set(carry.carriedIds);
+    const effecting = advanceEffects(dt);
     physics.forEachPose((id, pose) => {
       if (!carried.has(id) && isEscaped(pose.position)) redrop(id, pose.position);
-      scene.setPose(id, pose.position, pose.rotation, lifts.get(id) ?? 0);
+      scene.setPose(id, pose.position, pose.rotation, effectOf(id));
     });
     scene.render();
     adaptQuality();
@@ -297,7 +306,7 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     const resting = nextSpawn >= released && !carry.busy && !physics.pusherMoving && physics.isResting();
     setActivity(resting ? 'resting' : 'moving');
     // Render on demand: stop once nothing moves or eases (debug mode keeps measuring).
-    if (!resting || lifting || orbiting || options.debug) schedule();
+    if (!resting || lifting || orbiting || effecting || options.debug) schedule();
   };
 
   function schedule(): void {
@@ -332,9 +341,59 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
 
   const setHovered = (brick: number | null) => {
     hovered = brick;
-    const stack = brick === null ? null : stacks.stackOf(brick);
-    hoveredStack = new Set(stack === null ? [] : stacks.membersOf(stack).map((m) => m.id));
-    scene.setHighlight(hoveredStack);
+    let highlight: number[] = [];
+    if (brick !== null && tool === 'glove') {
+      const stack = stacks.stackOf(brick);
+      highlight = stack === null ? [] : stacks.membersOf(stack).map((m) => m.id);
+    } else if (brick !== null && tool === 'separator') {
+      const action = separatorAction(stacks, brick);
+      highlight = action.kind === 'split' ? action.pieces.flat() : [];
+    }
+    hoverLifted = new Set(tool === 'glove' ? highlight : []);
+    scene.setHighlight(new Set(highlight));
+  };
+
+  /** The Separator: pop the piece(s) off at the right connection, or shake a loose brick. */
+  const separate = (brick: number) => {
+    const action = separatorAction(stacks, brick);
+    if (action.kind === 'shake') {
+      shakes.set(brick, 0);
+      return;
+    }
+    const base = physics.stackPose(action.stack);
+    for (const piece of action.pieces) {
+      const at = physics.position(piece[0]);
+      const away = base && at ? { x: at.x - base.position.x, z: at.z - base.position.z } : { x: 0, z: 0 };
+      physics.splitStack(piece, popVelocity(physics.gravity, away, spinSign, options.reducedMotion));
+      stacks.split(piece[0]);
+      spinSign = spinSign === 1 ? -1 : 1;
+      if (!options.reducedMotion) for (const id of piece) pops.set(id, 0);
+    }
+  };
+
+  /** Advances the Separator animations. Returns true while any is running. */
+  const advanceEffects = (dt: number): boolean => {
+    for (const [timers, seconds] of [
+      [pops, SEPARATOR.popSeconds],
+      [shakes, SEPARATOR.shakeSeconds],
+    ] as const) {
+      for (const [id, t] of timers) {
+        if (t + dt >= seconds) timers.delete(id);
+        else timers.set(id, t + dt);
+      }
+    }
+    return pops.size > 0 || shakes.size > 0;
+  };
+
+  const effectOf = (id: number): BrickEffect => {
+    const shake = shakes.has(id) ? shakeAt(shakes.get(id) ?? 0, options.reducedMotion) : null;
+    return {
+      lift: lifts.get(id) ?? 0,
+      // Sideways on screen (world X), so the shake reads clearly from above.
+      dx: shake?.offset ?? 0,
+      yaw: shake?.yaw ?? 0,
+      scale: pops.has(id) ? popScale(pops.get(id) ?? 0) : 1,
+    };
   };
 
   /** The pointer is gone (left, cancelled, tool switched): nothing follows it any more. */
@@ -359,6 +418,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
    */
   const pressTarget = (kind: PressKind, under: number | null): PressTarget | null => {
     if (kind === 'hold') return tool === 'glove' && under !== null && !carry.busy ? 'brick' : null;
+    // A tap is the Separator's click; the other tools act on drags and holds.
+    if (kind === 'tap') return tool === 'separator' && under !== null && !carry.busy ? 'brick' : null;
     if (kind === 'drag') return 'table';
     // A stack still snapping into place can't be grabbed again until it has landed.
     return under === null ? 'table' : carry.busy ? null : 'brick';
@@ -378,10 +439,17 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     const under = physics.brickAt(ray.origin, ray.direction);
     const { action } = report;
     let taken = true;
+    let separated = false;
     if (action.type === 'press') {
       const on = pressTarget(action.kind, under);
       if (on === null) {
         taken = false;
+      } else if (tool === 'separator') {
+        if (on === 'brick' && under !== null) {
+          separate(under);
+          separated = true;
+          options.onInteract?.();
+        }
       } else {
         const next = transition(interaction, { type: 'press', on }, tool);
         // Carrying starts only if the stack could really be picked up.
@@ -400,7 +468,9 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     else physics.setPusher(null);
     updateExclusions();
     // Hovering is the Glove's only visible feedback, and touch has no hover.
-    setHovered(tool === 'glove' && interaction.kind === 'hovering' && report.hovers && !carry.busy ? under : null);
+    // Right after a split the piece flies off: no highlight until the pointer moves again.
+    const hovering = tool !== 'push' && interaction.kind === 'hovering' && report.hovers && !carry.busy && !separated;
+    setHovered(hovering ? under : null);
 
     if (!report.hovers) scene.setParallaxTarget(0, 0);
     if (ambient && report.hovers && report.position) {
@@ -447,6 +517,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     setHovered(null);
     excluded = new Set();
     lifts.clear();
+    pops.clear();
+    shakes.clear();
     const extra = idleDrop ? AMBIENT.idleDrop.max : 0;
     plan = planCascade({
       count: tier.brickCount + extra,

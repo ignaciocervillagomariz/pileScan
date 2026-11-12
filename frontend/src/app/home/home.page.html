@@ -19,8 +19,7 @@
               type="button"
               class="tool"
               [attr.aria-pressed]="tool() === t.id"
-              [attr.title]="t.id === 'separator' ? t.label + ' (not available yet)' : t.label"
-              [disabled]="t.id === 'separator'"
+              [attr.title]="t.label"
               [attr.data-testid]="'hero-tool-' + t.id"
               (click)="selectTool(t.id)"
             >

@@ -203,5 +203,26 @@ export const CARRY = {
   blobFadePerStud: 0.12,
 } as const;
 
+/** The Separator: what pops off a stack, and the feedback on a loose brick. */
+export const SEPARATOR = {
+  /** The piece that pops off rises about this high (studs), whatever the scene's gravity. */
+  popHeight: 1.6,
+  /** Sideways speed away from the rest of the stack, as a share of the upward speed. */
+  awayShare: 0.25,
+  /** Spin about the vertical (rad/s) and a slight tumble about a horizontal axis. */
+  spin: 3,
+  tumble: 1.2,
+  /** Pop animation on the piece: a quick swell and back. */
+  popSeconds: 0.18,
+  popScale: 0.06,
+  /** Shake of a loose brick: nothing to separate. */
+  shakeSeconds: 0.32,
+  shakeHz: 16,
+  shakeAmplitude: 0.06,
+  shakeDeg: 4,
+  /** With prefers-reduced-motion: a lower pop and a smaller shake, no swell. */
+  reducedMotionShare: 0.5,
+} as const;
+
 /** The ?debug=1 overlay refreshes at most this often. */
 export const DEBUG = { refreshMs: 100 } as const;

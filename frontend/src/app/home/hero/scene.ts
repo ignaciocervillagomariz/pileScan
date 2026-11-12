@@ -75,6 +75,18 @@ export interface BlobShadow {
   readonly height: number;
 }
 
+/** Visual-only changes to a brick's pose; physics is unaffected. */
+export interface BrickEffect {
+  /** Raised by this much (the Glove's hover lift). */
+  readonly lift?: number;
+  /** Moved sideways and turned about the vertical (the Separator's shake). */
+  readonly dx?: number;
+  readonly dz?: number;
+  readonly yaw?: number;
+  /** Scaled (the Separator's pop). */
+  readonly scale?: number;
+}
+
 /** Hovered stacks are tinted this far toward white. */
 const HIGHLIGHT = 0.16;
 /** Ghost bricks at the snap target. */
@@ -119,7 +131,9 @@ export class HeroScene {
   private readonly matrix = new Matrix4();
   private readonly position = new Vector3();
   private readonly rotation = new Quaternion();
-  private readonly unitScale = new Vector3(1, 1, 1);
+  private readonly scale = new Vector3(1, 1, 1);
+  private readonly turn = new Quaternion();
+  private static readonly UP = new Vector3(0, 1, 0);
   private readonly studSegments: number;
   private rendered = false;
   private fit: CameraFit | null = null;
@@ -374,8 +388,7 @@ export class HeroScene {
     }
   }
 
-  /** `lift` raises the brick visually only (the Glove's hover hint); physics is unaffected. */
-  setPose(id: number, position: Vec3, rotation: Quat, lift = 0): void {
+  setPose(id: number, position: Vec3, rotation: Quat, effect: BrickEffect = {}): void {
     const slot = this.slots[id];
     if (!slot) return;
     const carried = this.carried.get(id);
@@ -384,9 +397,11 @@ export class HeroScene {
       carried.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       return;
     }
-    this.position.set(position.x, position.y + lift, position.z);
+    this.position.set(position.x + (effect.dx ?? 0), position.y + (effect.lift ?? 0), position.z + (effect.dz ?? 0));
     this.rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
-    slot.mesh.setMatrixAt(slot.index, this.matrix.compose(this.position, this.rotation, this.unitScale));
+    if (effect.yaw) this.rotation.premultiply(this.turn.setFromAxisAngle(HeroScene.UP, effect.yaw));
+    this.scale.setScalar(effect.scale ?? 1);
+    slot.mesh.setMatrixAt(slot.index, this.matrix.compose(this.position, this.rotation, this.scale));
     this.dirty.add(slot.mesh);
   }
 

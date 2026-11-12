@@ -14,8 +14,11 @@
 import { CARRY, PUSH } from './config';
 import { Motion, motionOf, PointerSpeed, TouchIntent, touchIntent } from './pointer-classifier';
 
-/** How a press happened: a mouse or pen button, a sideways touch drag, or a touch held still. */
-export type PressKind = 'button' | 'drag' | 'hold';
+/**
+ * How a press happened: a mouse or pen button, a sideways touch drag, a touch held still, or a
+ * touch tap (lifted before it became a drag, a scroll or a taken hold).
+ */
+export type PressKind = 'button' | 'drag' | 'hold' | 'tap';
 
 export type PointerAction =
   | { readonly type: 'move'; readonly motion: Motion }
@@ -153,7 +156,11 @@ export function attachPointerInput(
   const onCancel = () => end('cancel');
   const onUp = (e: PointerEvent) => {
     if (e.pointerType === 'touch') {
-      if (intent === 'push' || intent === 'hold') report({ type: 'release' });
+      if (intent === 'undecided' && touchStart) {
+        position = relative(touchStart.x, touchStart.y);
+        report({ type: 'press', kind: 'tap' });
+      }
+      if (intent !== 'scroll') report({ type: 'release' });
       end('leave');
       return;
     }
