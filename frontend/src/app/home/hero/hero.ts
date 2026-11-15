@@ -115,9 +115,16 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   let tier = options.tier;
   await yieldToMain();
   const scene = new HeroScene(els.canvas, { tier, theme: theme() });
-  await scene.prepare(yieldToMain);
-  await yieldToMain();
-  const physics = new Physics(RAPIER, 1, options.reducedMotion ? PUSH.reducedMotionMaxSpeed : PUSH.maxSpeed);
+  // A failed start must not keep the WebGL context: the caller has no handle to dispose.
+  let physics: Physics;
+  try {
+    await scene.prepare(yieldToMain);
+    await yieldToMain();
+    physics = new Physics(RAPIER, 1, options.reducedMotion ? PUSH.reducedMotionMaxSpeed : PUSH.maxSpeed);
+  } catch (error) {
+    scene.dispose();
+    throw error;
+  }
   const stats = new FrameStats();
 
   let fit: CameraFit | null = null;
@@ -648,12 +655,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   document.addEventListener('keydown', onKey);
   els.canvas.addEventListener('wheel', onWheel, { passive: false });
   els.canvas.dataset['cursor'] = cursorFor();
-  layout();
-  await scene.precompile();
-  ready = true;
-  wake();
 
-  return {
+  const handle: HeroHandle = {
     replay: startCascade,
     setTool,
     dispose() {
@@ -670,4 +673,16 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
       scene.dispose();
     },
   };
+  // Shader compilation can fail (a context lost under memory pressure): release everything
+  // attached above before the caller falls back to the static surface.
+  try {
+    layout();
+    await scene.precompile();
+  } catch (error) {
+    handle.dispose();
+    throw error;
+  }
+  ready = true;
+  wake();
+  return handle;
 }
