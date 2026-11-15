@@ -1,14 +1,16 @@
 import {
   afterNextRender,
+  ChangeDetectorRef,
   Component,
   computed,
   ElementRef,
+  inject,
   OnDestroy,
   signal,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { IonContent } from '@ionic/angular';
+import { IonContent, ViewDidLeave, ViewWillEnter } from '@ionic/angular';
 import { BUILD_STAMP } from '../../build-info';
 import { AppFooter } from '../shared/ui/app-footer.component';
 import { DebugOverlay, DebugRow } from './debug-overlay.component';
@@ -42,7 +44,7 @@ type FallbackReason = 'low tier' | 'slow or metered connection' | 'no hardware W
   styleUrl: './home.page.scss',
   host: { '(document:keydown)': 'onKey($event)' },
 })
-export class HomePage implements OnDestroy {
+export class HomePage implements OnDestroy, ViewWillEnter, ViewDidLeave {
   private readonly hostEl = viewChild.required<ElementRef<HTMLElement>>('hero');
   private readonly canvasEl = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly cardEl = viewChild.required<ElementRef<HTMLElement>>('card');
@@ -55,7 +57,7 @@ export class HomePage implements OnDestroy {
   protected readonly hintVisible = signal(true);
 
   protected readonly heroState = signal<HeroState>('static');
-  /** `moving` during the cascade or a push, `resting` once every brick sleeps. */
+  /** `moving` during the cascade or a push, `resting` once every brick sleeps (see HeroActivity). */
   protected readonly heroActivity = signal<HeroActivity | null>(null);
   protected readonly debug = isDebugRequested(window.location.search);
   private readonly reducedMotion = prefersReducedMotion(window);
@@ -99,20 +101,65 @@ export class HomePage implements OnDestroy {
     ];
   });
 
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private hero: HeroHandle | null = null;
-  private destroyed = false;
+  /**
+   * Bumped whenever the scene must go away (page left or destroyed). A load that started
+   * under an older generation disposes what it built instead of going live.
+   */
+  private generation = 0;
+  /** True between leaving the page and coming back: the scene was released. */
+  private left = false;
+  /** Changing it re-creates the canvas: a canvas whose WebGL context was released stays lost. */
+  protected readonly canvasKey = signal(0);
 
   constructor() {
     // The headline is the LCP element: request the 3D chunk only after first paint, when idle.
-    afterNextRender(() => whenIdle(() => void this.startHero()));
+    afterNextRender(() => this.startWhenIdle());
     if (this.debug) window.addEventListener('pointermove', this.trackElementUnderPointer, { passive: true });
+  }
+
+  /**
+   * Ionic keeps this page alive (hidden) under /scan and the rest of the flow, so ngOnDestroy
+   * doesn't run there. Release the WebGL context, the physics world and the listeners on leave:
+   * phones kill background tabs that hold them (the camera app opens on top), and Esc on later
+   * pages must not reach the hidden scene.
+   */
+  ionViewDidLeave(): void {
+    this.left = true;
+    this.releaseHero();
+    this.canvasKey.update((k) => k + 1);
+    if (this.heroState() !== 'fallback') this.heroState.set('static');
+    // Ionic detaches a leaving page from change detection: render the released state once
+    // (swap in the fresh canvas, drop the dock's live state) while it's hidden.
+    this.changeDetector.detectChanges();
+  }
+
+  ionViewWillEnter(): void {
+    if (!this.left) return;
+    this.left = false;
+    if (this.heroState() === 'static') this.startWhenIdle();
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('pointermove', this.trackElementUnderPointer);
-    this.destroyed = true;
+    this.releaseHero();
+  }
+
+  private startWhenIdle(): void {
+    const generation = this.generation;
+    whenIdle(() => {
+      if (generation === this.generation) void this.startHero();
+    });
+  }
+
+  private releaseHero(): void {
+    this.generation++;
     this.hero?.dispose();
     this.hero = null;
+    this.heroActivity.set(null);
+    this.tool.set(DEFAULT_TOOL);
+    this.hintVisible.set(true);
   }
 
   protected replay(): void {
@@ -143,7 +190,7 @@ export class HomePage implements OnDestroy {
   }
 
   private async startHero(): Promise<void> {
-    if (this.destroyed) return;
+    const generation = this.generation;
     const tier = pickTier(readQualitySignals(window));
     this.tierName.set(tier.name);
     if (!tier.render3d) return this.fallback('low tier');
@@ -153,7 +200,7 @@ export class HomePage implements OnDestroy {
     this.heroState.set('loading');
     try {
       const { createHero } = await measureAsync('load', () => import('./hero/hero'));
-      if (this.destroyed) return;
+      if (generation !== this.generation) return;
       const hero = await measureAsync('create', () => createHero(
         {
           host: this.hostEl().nativeElement,
@@ -170,13 +217,14 @@ export class HomePage implements OnDestroy {
         },
       ));
       // The page may have been left while the scene was getting ready.
-      if (this.destroyed) {
+      if (generation !== this.generation) {
         hero.dispose();
         return;
       }
       this.hero = hero;
       this.heroState.set('live');
     } catch (error) {
+      if (generation !== this.generation) return;
       console.warn('Hero scene unavailable, showing the static surface.', error);
       this.fallback('load failed');
     }

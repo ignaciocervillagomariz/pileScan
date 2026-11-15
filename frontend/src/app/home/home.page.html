@@ -8,8 +8,13 @@
       data-testid="home-hero"
       aria-labelledby="home-headline"
     >
-      <!-- Decorative: every piece of content and the CTA live in the card below. -->
-      <canvas #canvas class="hero-canvas" aria-hidden="true" data-testid="hero-canvas"></canvas>
+      <!--
+        Decorative: every piece of content and the CTA live in the card below. Keyed so leaving
+        the page gives the next scene a fresh canvas (the old one's context was released).
+      -->
+      @for (key of [canvasKey()]; track key) {
+        <canvas #canvas class="hero-canvas" aria-hidden="true" data-testid="hero-canvas"></canvas>
+      }
 
       <!-- Always in the layout (the scene keeps bricks out from under it), shown once live. -->
       <div #dock class="dock" data-testid="hero-dock" [attr.inert]="heroState() === 'live' ? null : ''">
