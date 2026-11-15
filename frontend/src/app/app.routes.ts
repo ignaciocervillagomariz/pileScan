@@ -3,7 +3,14 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    title: 'PileScan',
+    pathMatch: 'full',
+    title: 'PileScan · Find the sets in your pile',
+    loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
+  },
+  {
+    path: 'scan',
+    pathMatch: 'full',
+    title: 'Scan your pile · PileScan',
     loadComponent: () => import('./features/capture/capture.page').then((m) => m.CapturePage),
   },
   {

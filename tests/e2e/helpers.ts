@@ -23,7 +23,7 @@ export async function waitForCatalog(timeoutMs = 30 * 60_000): Promise<void> {
 }
 
 export async function selectPhoto(page: Page, file: string): Promise<void> {
-  await page.goto('/');
+  await page.goto('/scan');
   await page.getByTestId(ids.captureInput).setInputFiles(file);
   await expect(page.getByTestId(ids.preview)).toBeVisible();
 }

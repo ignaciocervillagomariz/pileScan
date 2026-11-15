@@ -39,4 +39,13 @@ export const ids = {
   missingRow: 'missing-row',
   footer: 'app-footer',
   disclaimer: 'trademark-disclaimer',
+  homeHero: 'home-hero',
+  homeHeadline: 'home-headline',
+  homeCta: 'home-cta',
+  heroCanvas: 'hero-canvas',
+  heroDock: 'hero-dock',
+  heroHint: 'hero-hint',
+  heroReplay: 'hero-replay',
+  /** Suffix with the tool: glove, push or separator. */
+  heroToolPrefix: 'hero-tool-',
 } as const;

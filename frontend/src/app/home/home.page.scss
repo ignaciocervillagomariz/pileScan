@@ -1,0 +1,286 @@
+// The home page follows the OS color scheme. The rest of the app has no dark mode yet, so the
+// tokens are overridden here only; children such as the footer inherit them.
+:host {
+  --hero-surface: #d9d4cc;
+  --hero-vignette: rgba(70, 52, 34, 0.3);
+  --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .26 0 0 0 0 .2 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --hero-card-bg: #ffffff;
+  --hero-card-shadow: 0 10px 30px rgba(31, 42, 68, 0.12), 0 1px 3px rgba(31, 42, 68, 0.08);
+  --cta-bg: var(--ps-brand-dark);
+  --cta-ink: #ffffff;
+  --hero-tool-hover: rgba(31, 42, 68, 0.06);
+  --hero-tool-active: rgba(31, 42, 68, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --ps-canvas: #171513;
+    --ps-surface: #1f1c1a;
+    --ps-ink: #f2eee8;
+    --ps-ink-soft: #c9c2b8;
+    --ps-line: #3a3632;
+    --ps-brand-dark: #fdba74;
+    --hero-surface: #2b2825;
+    --hero-vignette: rgba(0, 0, 0, 0.35);
+    --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .9 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --hero-card-bg: #1f1c1a;
+    --hero-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --cta-bg: #fdba74;
+    --cta-ink: #1f1c1a;
+    --hero-tool-hover: rgba(255, 255, 255, 0.08);
+    --hero-tool-active: rgba(255, 255, 255, 0.14);
+  }
+}
+
+// ion-content colors its text through --color (default: the global ink), not `color`.
+ion-content {
+  --background: var(--ps-canvas);
+  --color: var(--ps-ink);
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  height: 100svh;
+  min-height: 560px;
+  max-height: 1100px;
+  // Vignette sits behind the transparent canvas, so it darkens the table, not the bricks.
+  // The grain layer is doubled on purpose: the "stronger grain" surface chosen in review.
+  background:
+    radial-gradient(ellipse 70% 65% at 50% 48%, transparent 35%, var(--hero-vignette) 100%),
+    var(--hero-grain),
+    var(--hero-grain),
+    var(--hero-surface);
+}
+
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  // Vertical swipes keep scrolling the page; horizontal swipes reach the scene and push.
+  touch-action: pan-y;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+}
+
+[data-hero-state='live'] .hero-canvas {
+  opacity: 1;
+}
+
+.hero-card {
+  position: absolute;
+  z-index: 1;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+}
+
+@media (min-width: 768px) {
+  .hero-card {
+    top: 50%;
+    right: auto;
+    left: clamp(24px, 7vw, 120px);
+    width: min(440px, 44vw);
+    padding: 32px;
+    transform: translateY(-50%);
+  }
+}
+
+// Cursors are 32x32 SVGs; the numbers are their hotspots, the keyword the fallback.
+.hero-canvas[data-cursor='glove-open'] {
+  cursor: url('/hero/cursors/glove-open.svg') 16 16, grab;
+}
+
+.hero-canvas[data-cursor='glove-closed'] {
+  cursor: url('/hero/cursors/glove-closed.svg') 16 16, grabbing;
+}
+
+.hero-canvas[data-cursor='separator'] {
+  cursor: url('/hero/cursors/separator.svg') 5 5, crosshair;
+}
+
+// Phones: bottom-right, where the thumb reaches. Desktop: top-right (media query below).
+.dock {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--ps-line);
+  border-radius: 28px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+  visibility: hidden;
+}
+
+[data-hero-state='live'] .dock {
+  visibility: visible;
+}
+
+.tools {
+  display: flex;
+  gap: 4px;
+}
+
+.tool {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ps-ink);
+  cursor: pointer;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+
+  &:hover:not(:disabled) {
+    background: var(--hero-tool-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ps-brand-dark);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    border-color: var(--ps-brand-dark);
+    background: var(--hero-tool-active);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+}
+
+.icon-fill {
+  fill: var(--hero-card-bg);
+}
+
+.divider {
+  width: 1px;
+  height: 28px;
+  margin: 0 2px;
+  background: var(--ps-line);
+}
+
+.hint {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--hero-card-bg);
+  box-shadow: var(--hero-card-shadow);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ps-ink-soft);
+  // Decorative help: it never blocks the scene underneath.
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 600ms ease-out;
+}
+
+[data-hero-state='live'] .hint {
+  visibility: visible;
+}
+
+.hint.faded {
+  opacity: 0;
+}
+
+@media (min-width: 768px) {
+  .dock {
+    top: calc(16px + env(safe-area-inset-top));
+    bottom: auto;
+  }
+
+  .hint {
+    top: calc(76px + env(safe-area-inset-top));
+    bottom: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    transition: none;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.brand {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ps-ink-soft);
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.subhead {
+  margin: 0 0 20px;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--ps-ink-soft);
+}
+
+.cta {
+  background: var(--cta-bg);
+  border-color: var(--cta-bg);
+  color: var(--cta-ink);
+  text-decoration: none;
+}
+
+.how {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 16px 8px;
+
+  h2 {
+    margin: 0 0 16px;
+    font-size: 1.375rem;
+  }
+
+  ol {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 12px;
+    line-height: 1.5;
+  }
+
+  strong {
+    display: block;
+  }
+}

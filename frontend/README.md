@@ -14,7 +14,7 @@ Angular 22 needs **Node >= 22.22.3 or >= 24.15** (`engines` in `package.json`).
 npm ci
 npm start               # http://localhost:4200, /api proxied to http://localhost:8080 (proxy.conf.json)
 npm test                # unit tests (Vitest, one run)
-npm run build           # production build in dist/pilescan/browser (includes the service worker)
+npm run build           # production build in dist/pilescan/browser (service worker, build stamp)
 npm run generate:api    # regenerate the API client from ../docs/api/openapi.yaml
 npm run check:api       # fails if the committed client is out of sync with the spec
 ```
@@ -32,6 +32,33 @@ then treats a same-origin request from `http://127.0.0.1:4200` as cross-origin
 
 The service worker is only enabled in production builds, so test installability with the Docker
 image or `npm run build` plus a static server, not with `ng serve`.
+
+### Which build is running?
+
+Every `npm run build` compiles in a stamp, `<commit> <UTC time>` (`git describe --always
+--dirty`; `-dirty` means uncommitted changes). The console prints `PileScan build …` on load and
+the home page's `?debug=1` overlay shows it. The Docker build has no `.git`, so pass the commit:
+
+```bash
+# from the repo root: rebuild and restart only the frontend, then check the stamp
+docker compose build --build-arg BUILD_COMMIT=$(git describe --always --dirty) frontend
+docker compose up -d frontend
+```
+
+`docker compose up` without `--build` keeps the old image. The service worker also serves its
+cached build first and switches to a new one only after a reload: if the stamp is old, reload
+once more (or use a private window).
+
+### Hero debug overlay
+
+`/?debug=1` shows the build stamp, hero state and fallback reason, quality tier, reduced motion,
+the active tool, fps, pointer speed (px/s) and interaction state, input rate and coalesced
+samples per event, the pusher (also drawn as a red wireframe in the scene), the hovered brick,
+how many bricks are still clearing a freshly placed pusher, and the element under the pointer.
+Tunables live in `src/app/home/hero/config.ts`. The tools (Glove, Push, Separator) are specified
+in `docs/specs/home-hero.md`; the overlay's `carry` row shows the carried stack and its snap
+target. The physics unit tests run real Rapier via the dev dependency
+`@dimforge/rapier3d-compat` (the test runner can't load the app's separate `.wasm`).
 
 ## Structure
 
@@ -55,7 +82,8 @@ src/app/
     ui/                  footer (credits + disclaimer), color swatch
 ```
 
-Routes: `/` capture, `/scan/:id` review, `/scan/:id/results` results (all lazy loaded).
+Routes: `/` home (3D hero, spec in `docs/specs/home-hero.md`), `/scan` capture, `/scan/:id` review,
+`/scan/:id/results` results (all lazy loaded). The installed PWA starts at `/scan`.
 
 ## Decisions
 
@@ -91,6 +119,7 @@ Routes: `/` capture, `/scan/:id` review, `/scan/:id/results` results (all lazy l
 
 | Screen | Ids |
 | --- | --- |
+| Home | `home-hero` (`data-hero-state` = `static` / `loading` / `live` / `fallback`; `data-hero-activity` = `settling` (reduced motion, drop simulated off-screen) / `moving` / `resting`), `hero-canvas`, `home-headline`, `home-cta`, `hero-debug-overlay` (only with `?debug=1`; rows carry `data-debug="<label>"`), `hero-dock`, `hero-tool-glove` / `hero-tool-push` / `hero-tool-separator` (`aria-pressed` marks the active tool), `hero-hint`, `hero-replay`; the canvas carries `data-cursor` |
 | Capture | `capture-input` (camera, `capture=environment`), `gallery-input`, `camera-button` (native only), `photo-preview`, `upload-button`, `choose-another-button`, `upload-loading`, `capture-error`, `photo-tips` |
 | Review | `scan-canvas` (`data-selected-detection` = id of the tapped/edited detection, `data-highlighted-detections` = comma-separated ids of expanded groups), `total-count`, `summary-detail`, `group-list`, `group-row` (`data-part-num`, `data-color-id`, `data-count`), `group-count`, `detection-row` (`data-detection-id`), `add-piece-button`, `draw-hint`, `add-without-box-button`, `cancel-draw-button`, `find-sets-button`, `scan-failed`, `scan-warning`, `review-loading`, `review-error`, `review-action-error` |
 | Edit/add dialog | `edit-dialog`, `edit-close`, `part-search-input`, `part-results`, `part-option` (`data-part-num`), `part-no-results`, `part-candidate-0..2`, `color-search-input`, `color-list`, `color-option` (`data-color-id`), `color-candidate-0..2`, `edit-current-part`, `edit-current-color`, `edit-save`, `delete-detection-button`, `edit-cancel`, `edit-error` |
