@@ -28,7 +28,7 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { approach, settled } from './ambient';
-import { buildShapeGeometry, createBrickMaterial } from './bricks';
+import { buildShapeGeometry, createBrickMaterial, GeometryOptions } from './bricks';
 import { PALETTE, SHAPES } from './catalog';
 import { AMBIENT, CAMERA, CARRY, LIGHTING, PUSH } from './config';
 import { CameraFit, fitCamera, Viewport } from './layout';
@@ -134,7 +134,7 @@ export class HeroScene {
   private readonly scale = new Vector3(1, 1, 1);
   private readonly turn = new Quaternion();
   private static readonly UP = new Vector3(0, 1, 0);
-  private readonly studSegments: number;
+  private readonly geometryOptions: GeometryOptions;
   private rendered = false;
   private fit: CameraFit | null = null;
   /** Current and target camera orbit offsets (radians) for the pointer parallax. */
@@ -184,7 +184,7 @@ export class HeroScene {
     this.setTheme(options.theme);
 
     this.material = createBrickMaterial(tier.clearcoat);
-    this.studSegments = tier.studSegments;
+    this.geometryOptions = { studSegments: tier.studSegments, undersideSegments: tier.undersideSegments };
 
     this.blobMaterial = new MeshBasicMaterial({
       color: 0x000000,
@@ -215,7 +215,7 @@ export class HeroScene {
     await yieldToMain();
     measure('geometry', () => {
       for (const shape of SHAPES) {
-        this.geometries.set(shape.id, buildShapeGeometry(shape, { studSegments: this.studSegments }));
+        this.geometries.set(shape.id, buildShapeGeometry(shape, this.geometryOptions));
       }
     });
   }

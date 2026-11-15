@@ -34,6 +34,8 @@ export interface QualityTier {
   readonly shadowRadius: number;
   readonly clearcoat: boolean;
   readonly studSegments: number;
+  /** Tubes and pins under the bricks: seen less often than studs, so coarser. */
+  readonly undersideSegments: number;
 }
 
 export const TIERS: Readonly<Record<TierName, QualityTier>> = {
@@ -47,6 +49,7 @@ export const TIERS: Readonly<Record<TierName, QualityTier>> = {
     shadowRadius: 5,
     clearcoat: true,
     studSegments: 24,
+    undersideSegments: 16,
   },
   mid: {
     name: 'mid',
@@ -58,6 +61,7 @@ export const TIERS: Readonly<Record<TierName, QualityTier>> = {
     shadowRadius: 3,
     clearcoat: true,
     studSegments: 16,
+    undersideSegments: 12,
   },
   low: {
     name: 'low',
@@ -69,6 +73,7 @@ export const TIERS: Readonly<Record<TierName, QualityTier>> = {
     shadowRadius: 0,
     clearcoat: false,
     studSegments: 0,
+    undersideSegments: 0,
   },
 };
 

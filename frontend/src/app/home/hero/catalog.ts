@@ -63,6 +63,25 @@ export function colorIndex(name: string): number {
   return index;
 }
 
+/** What stands inside the hollow underside, in the shape's local frame (X, Z). */
+export interface UndersideLayout {
+  /** Hollow tubes, one between each 2×2 group of studs (2-wide shapes). */
+  readonly tubes: readonly { x: number; z: number }[];
+  /** Solid pins, one between each pair of studs (1-wide shapes longer than 1). */
+  readonly pins: readonly { x: number; z: number }[];
+}
+
+/**
+ * Tubes and pins sit where four (or two) studs meet: between consecutive stud columns along
+ * each axis that is at least 2 long, and on the center line of an axis that is 1 long.
+ */
+export function undersideLayout(s: BrickShape): UndersideLayout {
+  const between = (n: number) => (n >= 2 ? Array.from({ length: n - 1 }, (_, i) => i - (n - 2) / 2) : [0]);
+  if (s.width === 1 && s.depth === 1) return { tubes: [], pins: [] };
+  const points = between(s.width).flatMap((x) => between(s.depth).map((z) => ({ x, z })));
+  return s.width >= 2 && s.depth >= 2 ? { tubes: points, pins: [] } : { tubes: [], pins: points };
+}
+
 /** Stud centers in the shape's local frame (origin at the body center, Y up). */
 export function studCenters(s: BrickShape): { x: number; z: number }[] {
   const centers: { x: number; z: number }[] = [];

@@ -17,6 +17,24 @@ export const DIMENSIONS = {
   studChamfer: 0.3 * MM,
 } as const;
 
+/**
+ * The hollow underside (visual only: colliders stay cuboids). 2-wide shapes have tubes between
+ * the studs, 1-wide shapes solid pins; see `undersideLayout` in catalog.ts.
+ */
+export const UNDERSIDE = {
+  wallThickness: 1.2 * MM,
+  topThickness: 1.0 * MM,
+  tubeOuterRadius: 3.25 * MM,
+  tubeInnerRadius: 2.4 * MM,
+  pinRadius: 1.6 * MM,
+  /**
+   * Vertex brightness inside the cavity: lighter at the open bottom, darker toward the ceiling,
+   * a cheap stand-in for occlusion that makes the cavity read.
+   */
+  shadeOpen: 0.82,
+  shadeDeep: 0.55,
+} as const;
+
 export const CAMERA = {
   fovDeg: 30,
   /** Tilt away from straight down (chosen over pure top-down in phase 1 review). */

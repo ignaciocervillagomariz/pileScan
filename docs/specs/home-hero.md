@@ -89,7 +89,18 @@ fast and playful, and lead to a "Scan your pile" call to action.
   - Shapes: bricks 1x1, 1x2, 1x4, 2x2, 2x4; plates 1x2, 2x2, 2x4; tiles 1x2, 2x2.
   - One instanced mesh per shape.
   - Plain studs: never any logo or text on them.
-- Physics colliders are cuboids (studs are ignored for collisions). Use 1 world unit = 1 stud
+  - Realistic underside (added 2026-11-15): a hollow body, open at the bottom, with ~1.2 mm
+    outer walls and a ~1.0 mm top. 2-wide shapes have N−1 hollow tubes between the studs
+    (outer Ø 6.5 mm, inner Ø 4.8 mm; the 2x2 has 1). 1-wide shapes have N−1 solid pins
+    (Ø 3.2 mm; the 1x1 has none). Plates and tiles follow the same pattern at their own
+    height. No text, numbers or logos inside either. The cavity is shaded darker toward the
+    top (vertex colors, no extra material).
+  - Each shape's geometry is built once and merged, and stays instanced. Tubes and pins use
+    `undersideSegments` per quality tier (16 high, 12 mid). Triangles per shape, high tier,
+    before → after: 2x4 brick or plate 2220 → 2524, 2x2 1260 → 1372, 1x4 1260 → 1420,
+    1x2 780 → 844, 1x1 540 → 556, tiles 300 → 364 / 412. Fps was unchanged (60 on desktop,
+    ≥46 during the cascade on the 4× throttled phone profile, 60 at rest).
+- Physics colliders are cuboids (studs and the hollow underside are ignored for collisions). Use 1 world unit = 1 stud
   pitch, and tune gravity for feel (a fall across the viewport takes about 1 s), not for
   physical accuracy.
 - Plastic look:
