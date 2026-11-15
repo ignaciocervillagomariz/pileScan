@@ -1,15 +1,38 @@
 # Spec: home page with interactive 3D brick hero
 
-Status (2026-11-11): phases 1–2 accepted. On 2026-11-11 the owner replaced the push design and
-phase 4 with a three-tool interaction model (see "Interaction model") and approved phase 4; the open calls were settled on 2026-11-12.
-It is built in three steps, each committed and shown to the owner: (1) mode dock and Push
-without thresholds, (2) Glove, (3) Separator. Owner of the implementation: single frontend
-session.
+Status (2026-11-16): **done, frozen.** Phases 1–5 are implemented. Merging
+`feat/home-hero` into main waits only on the owner's check of the three tools with a real
+mouse and trackpad. After the merge, change the hero only through a new spec or an ADR;
+sprint 3 restyles the other screens around it and leaves it alone.
 
-### Next steps
-1. Done: step 1 (dock, Push with no threshold), step 2 (Glove) and step 3 (Separator).
-2. Owner checks all three tools with real mouse, trackpad and phone.
-3. Phase 5 (polish) after the owner's OK.
+History: phases 1–2 accepted 2026-11-09. On 2026-11-11 the owner replaced the push design and
+phase 4 with a three-tool interaction model (see "Interaction model"), built in three steps
+(dock and Push, Glove, Separator) by a single frontend session.
+
+### Phase 5 results (2026-11-16)
+- **Reduced motion:** the cascade is simulated off-screen (`CASCADE.presettle*`, activity
+  `settling`) and the table appears at rest.
+- **Leaving the page** releases the WebGL context, the Rapier world and every listener (Ionic
+  keeps the page alive under `/scan`). Ionic detaches a leaving page from change detection,
+  so the page renders its released state once by hand. Coming back starts a fresh scene on a
+  new canvas. A failed start also releases what it had built.
+- **E2E** (`tests/e2e/hero.spec.ts`, GPU projects `hero-desktop` and `hero-mobile`): static
+  fallback, reduced motion, leave and return, dock and Esc, replay, Glove carry and rotation,
+  stacking, the Separator, Push, wheel scrolling and touch. 17 pass, 5 skip by design (mouse-only
+  or touch-only cases); the full suite is 53 passed. Without hardware WebGL2 the scene tests
+  skip; `HERO_REQUIRE_GPU=1` makes them fail instead.
+- **Lighthouse 12.8.2 on home** (median of three runs; the first mobile run, 62, was a
+  cold-Chrome outlier): mobile performance 85 (accepted bar 84), desktop 99 (was 100);
+  accessibility 100 on both; best practices 100; SEO 91, only because `robots.txt` is invalid.
+- **Bundle:** the hero chunk is 917 kB raw / 211 kB gzip, three's shared chunk 441 kB / 126 kB,
+  and Rapier's wasm 3.08 MB / **1.17 MB gzip**. That is above the ~1 MB mark set on 2026-11-08,
+  but it loads after first paint and the service worker caches it.
+- **Recording:** a 14.8 s, 1280×800 WebM (cascade, Glove stack, Separator, Push) in
+  `.hero-review/recording/hero-demo.webm` (git-ignored). It was scripted with Playwright, which
+  doesn't capture the OS cursor, so the app's cursor images are drawn on top.
+- **Code review** (code-reviewer on `2abdeb6..HEAD`): no blockers. The one major (a failed
+  start leaked the scene) is fixed. Minor findings are left for later and listed in the
+  handoff.
 
 ## Decisions (2026-11-08)
 - **Physics: keep Rapier.** Fast pushes against thin plates (0.4 units) need CCD, stacking

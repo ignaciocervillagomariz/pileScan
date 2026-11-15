@@ -2,6 +2,29 @@
 
 What was built for the PileScan MVP, how it was built, and how to run it. Date: 2026-11-02.
 
+## Home hero (single session, 2026-11-08 to 2026-11-16)
+An interactive 3D home page, built by one frontend session on `feat/home-hero` without a team.
+Spec and every decision: [docs/specs/home-hero.md](specs/home-hero.md).
+
+- **What:** about 35 bricks (about 15 on phones) cascade onto a table. three r187 renders them
+  and Rapier 0.21 runs the physics, in a chunk loaded after first paint. Three tools sit in a
+  dock: the Glove carries, rotates (wheel and R), snaps and stacks bricks; Push sweeps them;
+  the Separator pops stacks apart. Esc returns to the Glove, and replay drops the bricks again.
+- **Routes:** `/` is home and `/scan` is capture. The manifest's `start_url` is `/scan`.
+- **Robustness:** quality tiers, render on demand, and a pause when off-screen or hidden. A static
+  surface replaces the scene without hardware WebGL2, on slow or metered connections and on
+  low tiers. With reduced motion the bricks appear already settled. The scene is released when
+  the page is left, and when its start fails.
+- **Debuggability:** a build stamp in the console, and a `?debug=1` overlay with state, tier,
+  fps, tool, pointer, hover, carry and element under the pointer.
+- **Verification:** 177 frontend unit tests (real Rapier through the `-compat` build), hero E2E
+  in GPU projects (17 pass, 5 skip by design) and a green full E2E suite (53). Lighthouse on
+  home: mobile 85, desktop 99, accessibility 100. A code-reviewer pass found no blockers and
+  one major, now fixed.
+- **Lesson:** the owner once saw an old build because `docker compose up` ran without
+  `--build`. Every check now starts from the build stamp on the URL the owner uses.
+- **Open:** Rapier's wasm is 1.17 MB gzip. Minor review findings are in the frontend handoff.
+
 ## Sprint 2 (2026-11-03): real photos and a baseline
 
 Goal: make the app work end to end on real photos and measure a baseline, with no visual
