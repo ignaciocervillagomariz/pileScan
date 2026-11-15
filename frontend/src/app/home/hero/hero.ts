@@ -38,7 +38,11 @@ import { DEFAULT_TOOL, Tool } from './tools';
 /** Which cursor the canvas shows; the page's stylesheet maps it to the cursor images. */
 export type HeroCursor = 'default' | 'glove-open' | 'glove-closed' | 'separator';
 
-export type HeroActivity = 'moving' | 'resting';
+/**
+ * `settling`: reduced motion only, the cascade runs off-screen and nothing is drawn yet.
+ * `moving`: something on screen moves. `resting`: every brick sleeps.
+ */
+export type HeroActivity = 'settling' | 'moving' | 'resting';
 
 /** What the ?debug=1 overlay shows about the scene. */
 export interface HeroDebugInfo {
@@ -126,6 +130,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   let round = 0;
   let simTime = 0;
   let accumulator = 0;
+  /** Reduced motion: the cascade runs without drawing until it rests (see CASCADE.presettle*). */
+  let presettling = false;
   let lastTick = 0;
   let frame = 0;
   let visible = document.visibilityState === 'visible';
@@ -290,6 +296,11 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     stats.add(elapsedMs);
     const dt = Math.min(elapsedMs, 100) / 1000;
 
+    if (presettling) {
+      presettle();
+      return;
+    }
+
     carry.update(dt);
     // Capped so a long frame (or a resumed tab) never runs a burst of catch-up steps.
     accumulator = Math.min(accumulator + elapsedMs / 1000, PHYSICS.step * PHYSICS.maxStepsPerFrame);
@@ -316,6 +327,28 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     setActivity(resting ? 'resting' : 'moving');
     // Render on demand: stop once nothing moves or eases (debug mode keeps measuring).
     if (!resting || lifting || orbiting || effecting || options.debug) schedule();
+  };
+
+  /**
+   * One frame of the off-screen cascade: steps only, nothing drawn (the canvas keeps its last
+   * frame). Once the bricks rest, the normal loop takes over and draws them where they lie.
+   */
+  const presettle = () => {
+    for (let i = 0; i < CASCADE.presettleStepsPerFrame; i++) {
+      spawnDue();
+      physics.step();
+      simTime += PHYSICS.step;
+    }
+    physics.forEachPose((id, pose) => {
+      if (isEscaped(pose.position)) redrop(id, pose.position);
+    });
+    const done = nextSpawn >= released && physics.isResting();
+    if (done || simTime >= CASCADE.presettleMaxSeconds) {
+      presettling = false;
+      // The frame-rate check must not judge the device by these heavy, undrawn frames.
+      stats.reset();
+    }
+    schedule();
   };
 
   function schedule(): void {
@@ -544,8 +577,9 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     simTime = 0;
     accumulator = 0;
     stats.reset();
+    presettling = options.reducedMotion;
     round++;
-    setActivity('moving');
+    setActivity(presettling ? 'settling' : 'moving');
     wake();
   };
 

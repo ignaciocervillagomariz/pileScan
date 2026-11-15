@@ -137,6 +137,13 @@ export const CASCADE = {
   minSpacing: 2.2,
   maxAttempts: 60,
   seed: 7,
+  /**
+   * prefers-reduced-motion: no cascade. The same drop is simulated without drawing, this many
+   * steps per frame (short frames, no long task), and the table appears once everything rests,
+   * or after `presettleMaxSeconds` of simulated time at most.
+   */
+  presettleStepsPerFrame: 30,
+  presettleMaxSeconds: 10,
 } as const;
 
 /** Runtime downgrade when the device can't keep up during the cascade. */
