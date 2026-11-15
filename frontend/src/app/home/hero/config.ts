@@ -196,11 +196,26 @@ export const CARRY = {
   bounceHeight: 0.12,
   /** Touch: holding still this long on a brick grabs it. */
   longPressMs: 250,
-  /** Mouse wheel: one quarter turn per this much scrolling (trackpads send many small events). */
-  wheelStepPx: 60,
   /** Blob shadow under a carried stack: darkness at rest height, and how it fades with height. */
   blobOpacity: 0.32,
   blobFadePerStud: 0.12,
+} as const;
+
+/**
+ * Turning a carried stack. R turns a quarter; the mouse wheel turns in finer steps. Snapping
+ * still needs a 90° alignment with the target, so the ghost shows the nearest quarter turn.
+ */
+export const ROTATION = {
+  /** One wheel step (a mouse notch, or a short trackpad swipe). */
+  stepDeg: 15,
+  /**
+   * Scrolling per step, in px (line-mode deltas are converted first). A notch reports 48–120 px
+   * depending on browser and OS and counts as one step; a trackpad swipe reports ~2–10 px per
+   * event, so a short swipe gives a step or two.
+   */
+  wheelThresholdPx: 40,
+  /** A pause this long between wheel events starts a new gesture (leftovers are dropped). */
+  wheelIdleResetMs: 150,
 } as const;
 
 /** The Separator: what pops off a stack, and the feedback on a loose brick. */

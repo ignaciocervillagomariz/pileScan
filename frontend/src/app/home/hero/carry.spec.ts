@@ -3,7 +3,9 @@ import { Carry, CarryView, PointerRay, snapProgress, tiltFor } from './carry';
 import { SHAPES } from './catalog';
 import { CARRY, DIMENSIONS } from './config';
 import { Physics, RapierModule } from './physics';
-import { IDENTITY, Vec3 } from './pose';
+import { IDENTITY, Vec3, yawOf } from './pose';
+
+const DEG = Math.PI / 180;
 import { Stacks } from './stacks';
 
 const H = DIMENSIONS.brickHeight;
@@ -119,5 +121,31 @@ describe('Carry with real physics', () => {
     carry.release();
     run(240);
     expect(physics.position(0)!.y).toBeCloseTo(H / 2, 1);
+  });
+
+  it('keeps the free angle when dropped on the bare table', () => {
+    const { physics, carry, run } = setup([{ id: 0, shape: 'brick-2x4', x: 0, z: 0 }]);
+    carry.begin(0, down(0, 0));
+    carry.rotateBy(37 * DEG);
+    run(60, () => carry.setPointer(down(4, 0)));
+    expect(carry.angle).toBeCloseTo(37 * DEG, 3);
+    carry.release();
+    run(180);
+    expect(yawOf(physics.rotation(0)!)).toBeCloseTo(37 * DEG, 1);
+  });
+
+  it('eases a free angle to the nearest quarter turn of the target when it snaps', () => {
+    const { physics, stacks, carry, run } = setup([
+      { id: 0, shape: 'brick-2x4', x: 0, z: 0 },
+      { id: 1, shape: 'brick-1x2', x: -6, z: 0 },
+    ]);
+    carry.begin(1, down(-6, 0));
+    carry.rotateBy(50 * DEG);
+    run(90, () => carry.setPointer(down(0, 0.5)));
+    expect(carry.target).toBe(0);
+    carry.release();
+    run(60);
+    expect(stacks.stackOf(1)).toBe(0);
+    expect(yawOf(physics.rotation(1)!)).toBeCloseTo(90 * DEG, 2);
   });
 });

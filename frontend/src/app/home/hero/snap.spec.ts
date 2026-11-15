@@ -82,6 +82,18 @@ describe('snap target', () => {
     expect(yawOf(snap?.rotation as Quat)).toBeCloseTo(110 * DEG);
   });
 
+  it('snaps a free angle to the nearest quarter turn relative to a turned target', () => {
+    const target = brick(1, [2, 4], { x: 0, z: 0 }, { rotation: yawQuat(30 * DEG) });
+    // 30° + 50° is 50° from the target: nearer a quarter turn than none.
+    const near = snapTarget(carried([2, 2], { x: 0, z: 0 }, 80 * DEG), [target]);
+    expect(near?.local.quarterTurns).toBe(1);
+    expect(yawOf(near?.rotation as Quat)).toBeCloseTo(120 * DEG);
+    // 40° from the target: back to no turn. Angles past a full turn wrap around.
+    const back = snapTarget(carried([2, 2], { x: 0, z: 0 }, (30 + 40 + 360) * DEG), [target]);
+    expect(back?.local.quarterTurns).toBe(0);
+    expect(yawOf(back?.rotation as Quat)).toBeCloseTo(30 * DEG);
+  });
+
   it('skips positions that would overlap another brick and takes the next nearest', () => {
     const base = brick(1, [2, 4], { x: 0, z: 0 }, { stackHeight: 2 });
     // A 1x2 already on the left half of the base, front.

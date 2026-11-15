@@ -147,9 +147,14 @@ export class Carry {
     this.ray = ray;
   }
 
-  /** R or the mouse wheel: a quarter turn. */
-  rotate(direction: 1 | -1): void {
-    if (this.stack !== null && !this.snapping) this.yawTarget += direction * (Math.PI / 2);
+  /** R (a quarter turn) or the mouse wheel (finer steps): turns by `radians`, eased. */
+  rotateBy(radians: number): void {
+    if (this.stack !== null && !this.snapping) this.yawTarget += radians;
+  }
+
+  /** The carried stack's angle about the vertical, in radians (free, not snapped to 90°). */
+  get angle(): number {
+    return this.yaw;
   }
 
   /** Release: snap onto the ghost's position, or drop and let physics take over. */

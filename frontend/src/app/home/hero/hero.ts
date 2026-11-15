@@ -8,7 +8,7 @@ import * as RAPIER from '@dimforge/rapier3d';
 import { approach, parallaxAngles, parallaxMargin, settled } from './ambient';
 import { Carry } from './carry';
 import { footprintRadius, gravityFor, planCascade, Spawn } from './cascade';
-import { ADAPTIVE, AMBIENT, CARRY, CASCADE, DEBUG, GLOVE, PHYSICS, PUSH, SEPARATOR, WALLS } from './config';
+import { ADAPTIVE, AMBIENT, CASCADE, DEBUG, GLOVE, PHYSICS, PUSH, SEPARATOR, WALLS } from './config';
 import { FrameStats } from './frame-stats';
 import {
   CameraFit,
@@ -29,6 +29,7 @@ import { Physics, PUSHER_Y } from './physics';
 import { attachPointerInput, PointerReport, PointerStats, PressKind } from './pointer-input';
 import { nextExclusions } from './push-rules';
 import { QualityTier, TIERS } from './quality';
+import { keyTurn, WheelAccumulator, wheelTurn } from './rotation-input';
 import { BrickEffect, HeroScene, Theme } from './scene';
 import { popScale, popVelocity, separatorAction, shakeAt } from './separate';
 import { Stacks } from './stacks';
@@ -54,7 +55,13 @@ export interface HeroDebugInfo {
   readonly hovered: { readonly id: number; readonly x: number; readonly z: number } | null;
   readonly excluded: number;
   /** The carried stack's bricks and its snap target, if any. */
-  readonly carry: { readonly bricks: number; readonly target: number | null } | null;
+  readonly carry: {
+    readonly bricks: number;
+    readonly target: number | null;
+    /** Free angle about the vertical, and the wheel scrolling not yet turned into a step. */
+    readonly angleDeg: number;
+    readonly wheelPx: number;
+  } | null;
 }
 
 export interface HeroOptions {
@@ -143,8 +150,8 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
   const pops = new Map<number, number>();
   const shakes = new Map<number, number>();
   let spinSign: 1 | -1 = 1;
-  /** Trackpads send many small wheel events: a quarter turn per this much scrolling. */
-  let wheelSum = 0;
+  /** Mouse notches and trackpad streams become the same fine rotation steps. */
+  const wheel = new WheelAccumulator(window.innerHeight);
   const stacks = new Stacks();
   let excluded = new Set<number>();
   const lifts = new Map<number, number>();
@@ -270,7 +277,9 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
       pusher,
       hovered: hoveredInfo(),
       excluded: excluded.size,
-      carry: carry.busy ? { bricks: carry.carriedIds.length, target: carry.target } : null,
+      carry: carry.busy
+        ? { bricks: carry.carriedIds.length, target: carry.target, angleDeg: (carry.angle * 180) / Math.PI, wheelPx: wheel.accumulated }
+        : null,
     });
   };
 
@@ -482,20 +491,22 @@ export async function createHero(els: HeroElements, options: HeroOptions): Promi
     return taken;
   };
 
-  /** R or the mouse wheel turns a carried stack a quarter turn. */
+  /** R turns a carried stack a quarter turn; the wheel turns it in ROTATION.stepDeg steps. */
   const onKey = (e: KeyboardEvent) => {
-    if (interaction.kind !== 'carrying' || e.repeat || (e.key !== 'r' && e.key !== 'R')) return;
-    carry.rotate(e.shiftKey ? -1 : 1);
+    const turn = keyTurn(e.key, e.shiftKey);
+    if (interaction.kind !== 'carrying' || e.repeat || turn === null) return;
+    carry.rotateBy(turn);
     wake();
   };
   const onWheel = (e: WheelEvent) => {
-    if (interaction.kind !== 'carrying') return;
-    // Only while carrying: otherwise the wheel scrolls the page as usual.
+    if (interaction.kind !== 'carrying') {
+      // Otherwise the wheel scrolls the page as usual, and nothing carries over to the next carry.
+      wheel.reset();
+      return;
+    }
     e.preventDefault();
-    wheelSum += e.deltaY;
-    if (Math.abs(wheelSum) < CARRY.wheelStepPx) return;
-    carry.rotate(wheelSum > 0 ? 1 : -1);
-    wheelSum = 0;
+    const step = wheel.add({ deltaY: e.deltaY, deltaMode: e.deltaMode, timeMs: e.timeStamp });
+    if (step !== 0) carry.rotateBy(wheelTurn(step));
     wake();
   };
 

@@ -90,7 +90,9 @@ export class HomePage implements OnDestroy {
       },
       {
         label: 'carry',
-        value: d?.carry ? `${d.carry.bricks} brick(s) · target ${d.carry.target === null ? '-' : `#${d.carry.target}`}` : '-',
+        value: d?.carry
+          ? `${d.carry.bricks} brick(s) · target ${d.carry.target === null ? '-' : `#${d.carry.target}`} · ${d.carry.angleDeg.toFixed(0)}° · wheel ${d.carry.wheelPx.toFixed(0)} px`
+          : '-',
       },
       { label: 'under pointer', value: this.elementUnderPointer() },
       { label: 'dpr', value: String(window.devicePixelRatio) },

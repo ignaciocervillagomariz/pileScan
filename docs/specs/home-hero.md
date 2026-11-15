@@ -137,11 +137,22 @@ anywhere: a brick is carried because it was pressed, not because the pointer mov
   - It flies at the highest top surface under its footprint plus about one brick of
     clearance. It rights itself studs-up and tilts slightly with the movement, and its shadow
     shows where it is.
-  - R or the mouse wheel rotates it 90°.
+  - R rotates it 90° (Shift+R the other way). The mouse wheel rotates it in fine steps of
+    `ROTATION.stepDeg` (15°), eased. Wheel deltas are converted to pixels (`deltaMode`), add
+    up, and give one step per `ROTATION.wheelThresholdPx`, at most one per event: a mouse
+    notch is one step, and a short trackpad swipe gives one or two. A pause ends the gesture
+    and drops leftovers (`rotation-input.ts`).
+  - The wheel listener is non-passive and blocks page scroll only while carrying; otherwise
+    the wheel scrolls the page as usual.
+  - Touch has no fine rotation (decided 2026-11-15): a two-finger twist would fight pinch-zoom,
+    need `touch-action` changes on the canvas and cover the brick. Touch carries snap to the
+    nearest 90° like any other.
 - Snapping uses stud-grid math (`snap.ts`), not physics. A carried stack snaps by its bottom
   brick's footprint. The ghost shows the nearest valid position on the topmost brick
-  underneath: at least one stud overlapping, 90° steps, no overlap with other bricks, and at
-  most 6 bricks in the combined stack.
+  underneath: at least one stud overlapping, the nearest 90° orientation relative to the
+  target (whatever free angle the stack has), no overlap with other bricks, and at most 6
+  bricks in the combined stack. On release the stack eases to that orientation; released on
+  the table with no target, it keeps its free angle.
 - Release on a valid target: the carried stack animates down with a small bounce and joins
   that stack's compound body. Release with no valid target: it drops from carry height and
   collides normally, so it lands on the table or on whatever is under it, and never passes
