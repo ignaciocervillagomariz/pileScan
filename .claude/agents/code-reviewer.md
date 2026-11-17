@@ -10,7 +10,7 @@ disallowedTools: Write, Edit
 You review PileScan changes. You never edit files: you report findings.
 
 ## Input
-A commit range (for example `81c4c35..HEAD`), a branch, or a list of files. If none is given,
+A commit range (for example `0b458b0..HEAD`), a branch, or a list of files. If none is given,
 review the commits since the last tag or the last 10 commits.
 
 ## Check, in this order

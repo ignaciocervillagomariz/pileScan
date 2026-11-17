@@ -30,7 +30,7 @@ phase 4 with a three-tool interaction model (see "Interaction model"), built in 
 - **Recording:** a 14.8 s, 1280×800 WebM (cascade, Glove stack, Separator, Push) in
   `.hero-review/recording/hero-demo.webm` (git-ignored). It was scripted with Playwright, which
   doesn't capture the OS cursor, so the app's cursor images are drawn on top.
-- **Code review** (code-reviewer on `2abdeb6..HEAD`): no blockers. The one major (a failed
+- **Code review** (code-reviewer on `11c4626..HEAD`): no blockers. The one major (a failed
   start leaked the scene) is fixed. Minor findings are left for later and listed in the
   handoff.
 
@@ -61,7 +61,7 @@ phase 4 with a three-tool interaction model (see "Interaction model"), built in 
   bake, Rapier's first step (lazy wasm compilation) and chunk evaluation, all after first paint;
   LCP stays the headline. Devices with software WebGL get the static surface.
 - **Phase 3 review (2026-11-09): "pushing doesn't work" on the owner's machine.** Root
-  cause: `127.0.0.1:4200` served a frontend image built before the push commit (`e2b6e47`),
+  cause: `127.0.0.1:4200` served a frontend image built before the push commit (`097f551`),
   because the stack was restored with `docker compose up` without `--build`; the verification
   had run against a separate static server, not that URL. The service worker would also have
   kept serving the cached build until a reload. Since then every build carries a stamp
