@@ -10,9 +10,9 @@ everything from the cached raw outputs without re-running anything.
 
 | label | code | detector | part classifier | path |
 |---|---|---|---|---|
-| before-stub | main eeba8ee | opencv-lab-v1 | stub | inference only (`:8100`, standalone container) |
-| before-bkg | main eeba8ee | opencv-lab-v1 | Brickognize | inference (`:8101`) + full API |
-| after-stub | HEAD e654564+ | opencv-lab-v2 | stub | inference (`:8000`) + full API through nginx |
+| before-stub | main 9920898 | opencv-lab-v1 | stub | inference only (`:8100`, standalone container) |
+| before-bkg | main 9920898 | opencv-lab-v1 | Brickognize | inference (`:8101`) + full API |
+| after-stub | HEAD 1d22d43+ | opencv-lab-v2 | stub | inference (`:8000`) + full API through nginx |
 | after-bkg | same | opencv-lab-v2 | Brickognize | inference + full API, **3 photos only** (see caveats) |
 
 ## Summary: what we can already say
