@@ -14,7 +14,7 @@ Stack: docker compose with `tests/compose.e2e.yml` (stub classifier) for suites;
 | C3 | Real Brickognize smoke (`-m real_brickognize`) | PASS | run on the default config with internet |
 | C4 | Contract total, stub config | PASS | 48 passed, 1 skipped (C3 on stub), then 49 passed on default config |
 | H1 | 403 regression: POST /api/scans via nginx on `localhost:4200` and `127.0.0.1:4200`, with and without Origin | PASS | 4 cases, all 201 |
-| H2 | Same on the LAN IP | SKIPPED | the auto-mode permission classifier denied `BIND_ADDRESS=0.0.0.0`. integration verified 192.168.1.223:4200 itself (201 with matching Origin). The test is in place: `EXTRA_HOSTS=http://<ip>:4200 pytest contract/test_contract_110.py` |
+| H2 | Same on the LAN IP | SKIPPED | the auto-mode permission classifier denied `BIND_ADDRESS=0.0.0.0`. integration verified <LAN-IP>:4200 itself (201 with matching Origin). The test is in place: `EXTRA_HOSTS=http://<ip>:4200 pytest contract/test_contract_110.py` |
 | N | Failure modes (inference down, Brickognize down) | PASS | 2 tests |
 | E1 | E2E, Pixel 7 and desktop (existing 16 tests) | PASS | |
 | E2 | E2E new states: loading, 500 error banner with retry, network failure, zero detections + debug toggle, client downscale (stored image long side <= 2048, aspect 4:3) | PASS | `states.spec.ts`, 5 tests x 3 projects |

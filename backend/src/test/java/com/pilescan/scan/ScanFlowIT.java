@@ -167,7 +167,7 @@ class ScanFlowIT extends AbstractIntegrationTest {
     /** Regression for the 403 on http://127.0.0.1:4200: the API must not depend on the browser origin. */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {
-            "http://127.0.0.1:4200", "http://localhost:4200", "http://192.168.1.50:4200",
+            "http://127.0.0.1:4200", "http://localhost:4200", "http://192.0.2.50:4200",
             "https://my-host.tail1234.ts.net", "https://random.trycloudflare.com"})
     void acceptsPostsWhateverTheBrowserOrigin(String origin) throws Exception {
         stubInference(40, 20);

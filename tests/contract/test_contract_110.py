@@ -75,7 +75,7 @@ def test_blank_photo_is_zero_detections_not_failure(openapi, backend_url, fixtur
 
 def _hosts():
     hosts = ["http://localhost:4200", "http://127.0.0.1:4200"]
-    extra = os.environ.get("EXTRA_HOSTS", "")  # e.g. http://192.168.1.20:4200 (needs BIND_ADDRESS=0.0.0.0)
+    extra = os.environ.get("EXTRA_HOSTS", "")  # e.g. http://192.0.2.20:4200 (needs BIND_ADDRESS=0.0.0.0)
     return hosts + [h for h in extra.split(",") if h]
 
 

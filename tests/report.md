@@ -50,7 +50,7 @@ E2E total: 16 tests (8 per project), all passed. Contract: 35 passed, 1 skipped.
 
 Re-run after the backend JPA refactor and the regenerated client (final state): `mvnw verify` 52 green, lint/static/check:api PASS, live contract 36 passed (strict spec), E2E 16/16. Final run after c22bafc: `mvnw verify` 53 tests green (31 unit, 22 IT), contract 35 passed/1 skipped (real Brickognize), failure modes 10/10 repeated runs, E2E 16/16, static check PASS.
 
-Infra: inference logs showed requests from external IP 185.93.3.244 while port 8000 was published on all interfaces. Reported, not reproduced (logs rotated). Compose now binds published ports to 127.0.0.1 by default (81a8e19).
+Infra: inference logs showed requests from an external IP while port 8000 was published on all interfaces. Reported, not reproduced (logs rotated). Compose now binds published ports to 127.0.0.1 by default (81a8e19).
 
 | D6 | Published ports bound to 127.0.0.1 by default | `docker compose ps` | PASS | 8080, 4200, 8000 on 127.0.0.1; postgres not published |
 
